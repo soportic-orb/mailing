@@ -66,6 +66,19 @@ $tomorrow = (new DateTimeImmutable('tomorrow', app_tz()))->format('Y-m-d');
             </div>
             <label class="field"><span>Respondre a (opcional)</span><input class="input" type="email" name="reply_to" value="<?= e($c['reply_to']) ?>" placeholder="<?= e($sender['reply_to'] ?? 'La del remitent') ?>"><small>Si les respostes han d'anar a una altra adreça.</small></label>
 
+            <?php $forced = Document::forcedLang($doc, $audience); ?>
+            <?php if (count($doc['langs']) > 1): ?>
+                <label class="field"><span>Idioma del contingut</span>
+                    <select class="input" name="lang">
+                        <option value="">Automàtic: cada contacte rep el seu idioma (si no, el <?= e(Document::LANGS[$doc['primary']]) ?>)</option>
+                        <?php foreach ($doc['langs'] as $code => $_): ?><option value="<?= e($code) ?>" <?= $forced === $code ? 'selected' : '' ?>>Tothom en <?= e(Document::LANGS[$code]) ?></option><?php endforeach; ?>
+                    </select>
+                    <small>Força la versió que s'envia a tots els destinataris, sigui quin sigui l'idioma de la seva fitxa.</small>
+                </label>
+            <?php else: ?>
+                <input type="hidden" name="lang" value="<?= e($audience['lang']) ?>">
+            <?php endif; ?>
+
             <span class="field-label">Destinataris</span>
             <label class="check"><input type="checkbox" name="all" value="1" <?= $audience['all'] ? 'checked' : '' ?> data-aud> Tots els contactes subscrits del projecte</label>
             <div id="aud-pick" <?= $audience['all'] ? 'hidden' : '' ?>>
@@ -103,7 +116,7 @@ $tomorrow = (new DateTimeImmutable('tomorrow', app_tz()))->format('Y-m-d');
                     <p style="margin:0 0 10px"><span class="pill"><?= e(Document::LANGS[$code]) ?></span> <b><?= e($l['subject'] ?: 'Sense assumpte') ?></b><br><span class="small muted"><?= e($l['preheader'] ?: 'Sense text de previsualització') ?></span> <a class="small" href="/campanyes/<?= (int) $c['id'] ?>/previsualitza?lang=<?= e($code) ?>" target="_blank">Previsualitza</a></p>
                 <?php endforeach; ?>
                 <p class="small muted" style="margin:0">Versió <?= (int) $c['version'] ?> · editada <?= e(ago($c['updated_at'])) ?> · <a href="/campanyes/<?= (int) $c['id'] ?>/previsualitza" target="_blank">Previsualitza</a></p>
-                <?php if (count($doc['langs']) > 1): ?><p class="small muted" style="margin:8px 0 0">Cada contacte rep l'idioma de la seva fitxa; si no el té o no hi és, el <?= e(Document::LANGS[$doc['primary']]) ?>.</p><?php endif; ?>
+                <?php if (count($doc['langs']) > 1): ?><p class="small muted" style="margin:8px 0 0"><?php if ($forced): ?>Tots els destinataris reben la versió en <b><?= e(Document::LANGS[$forced]) ?></b> (idioma forçat a la configuració).<?php else: ?>Cada contacte rep l'idioma de la seva fitxa; si no el té o no hi és, el <?= e(Document::LANGS[$doc['primary']]) ?>.<?php endif; ?></p><?php endif; ?>
             </div>
         </div>
     </div>
@@ -158,7 +171,7 @@ $tomorrow = (new DateTimeImmutable('tomorrow', app_tz()))->format('Y-m-d');
         <div class="card-body">
             <label class="field"><span>A les adreces</span><input class="input" name="emails" value="<?= e($me['email'] ?? '') ?>" placeholder="una@exemple.cat, altra@exemple.cat"><small>Fins a 10, separades per comes. Els camps ({{nom}}…) es posen amb les dades del contacte si existeix.</small></label>
             <?php if (count($doc['langs']) > 1): ?>
-                <label class="field"><span>Idioma</span><select class="input" name="lang"><?php foreach ($doc['langs'] as $code => $_): ?><option value="<?= e($code) ?>"><?= e(Document::LANGS[$code]) ?></option><?php endforeach; ?></select></label>
+                <label class="field"><span>Idioma</span><select class="input" name="lang"><?php foreach ($doc['langs'] as $code => $_): ?><option value="<?= e($code) ?>" <?= $forced === $code ? 'selected' : '' ?>><?= e(Document::LANGS[$code]) ?></option><?php endforeach; ?></select></label>
             <?php endif; ?>
             <button class="btn secondary" type="submit" data-busy="Enviant…">Envia la prova</button>
             <?php if ($c['test_sent_at']): ?><p class="small muted" style="margin:8px 0 0">Última prova: <?= e(ago($c['test_sent_at'])) ?></p><?php endif; ?>

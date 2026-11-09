@@ -128,7 +128,9 @@ final class Campaigns
     {
         $doc = Document::decode($c['doc']);
         $sender = $c['sender_id'] ? DB::one('SELECT * FROM senders WHERE id = ? AND project_id = ?', [$c['sender_id'], $project['id']]) : null;
-        $recipients = Audience::count(Audience::clean($c['audience']), (int) $project['id']);
+        $audience = Audience::clean($c['audience']);
+        $recipients = Audience::count($audience, (int) $project['id']);
+        $forced = Document::forcedLang($doc, $audience);
         $out = [];
         $out[] = ['ok' => (bool) $sender, 'label' => $sender ? 'Remitent: ' . $sender['name'] . ' <' . $sender['email'] . '>' : 'Cal triar l\'adreça d\'emissió (remitent).', 'block' => true];
         if ($sender) {
@@ -136,7 +138,15 @@ final class Campaigns
             $out[] = ['ok' => $active, 'label' => $active ? 'El remitent està validat a Mailjet.' : 'El remitent no consta com a validat a Mailjet (estat: ' . ($sender['mailjet_status'] ?: 'desconegut') . '). Sincronitza els remitents.', 'block' => false];
         }
         $out[] = ['ok' => $recipients > 0, 'label' => $recipients > 0 ? fmt_n($recipients) . ' destinataris: ' . Audience::describe(Audience::clean($c['audience']), (int) $project['id']) : 'No hi ha cap destinatari (tria llistes o segments).', 'block' => true];
+        if ($forced) {
+            $out[] = ['ok' => true, 'label' => 'Tothom rebrà la versió en ' . Document::LANGS[$forced] . ' (idioma forçat).', 'block' => false];
+        } elseif ($audience['lang'] !== '') {
+            $out[] = ['ok' => false, 'label' => 'L\'idioma triat (' . Document::LANGS[$audience['lang']] . ') no és al correu: cada contacte rebrà el seu idioma.', 'block' => false];
+        }
         foreach ($doc['langs'] as $code => $l) {
+            if ($forced && $code !== $forced) {
+                continue;
+            }
             $tag = count($doc['langs']) > 1 ? ' (' . Document::LANGS[$code] . ')' : '';
             $out[] = ['ok' => $l['subject'] !== '', 'label' => $l['subject'] !== '' ? 'Assumpte' . $tag . ': «' . $l['subject'] . '»' : 'Falta l\'assumpte' . $tag . '.', 'block' => true];
             $out[] = ['ok' => $l['preheader'] !== '', 'label' => $l['preheader'] !== '' ? 'Text de previsualització' . $tag . ' posat.' : 'No hi ha text de previsualització' . $tag . ' (recomanat).', 'block' => false];
