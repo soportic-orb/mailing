@@ -28,6 +28,7 @@ final class Cron
             $out['send'] = Sender::tick();
             $out['sync'] = Sync::runDue();
             self::cleanup();
+            Forms::cleanup();
         } catch (\Throwable $e) {
             logger('Cron: ' . $e->getMessage(), ['file' => $e->getFile() . ':' . $e->getLine()], 'error');
             $out['error'] = $e->getMessage();

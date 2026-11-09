@@ -70,6 +70,7 @@ $accent = $project['color'] ?? '#ac1966';
         <a href="/contactes"<?= $active('/contactes') ?>>Contactes</a>
         <a href="/llistes"<?= $active('/llistes') ?>>Llistes</a>
         <a href="/segments"<?= $active('/segments') ?>>Segments</a>
+        <a href="/formularis"<?= $active('/formularis') ?>>Formularis</a>
         <a href="/plantilles"<?= $active('/plantilles') ?>>Plantilles</a>
         <a href="/remitents"<?= $active('/remitents') ?>>Remitents</a>
         <a href="/sincronitzacio"<?= $active('/sincronitzacio') ?>>Sincronització</a>

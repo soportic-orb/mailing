@@ -121,9 +121,13 @@ echo "== Baixa i «veure al navegador»"
 UT=$(php -r 'require "src/bootstrap.php"; echo Mailing\Services\Links::token((int)$argv[1]);' $M1)
 curl -s "$B/u/$UT" | grep -q 'Vols deixar de rebre' && ok "pàgina de baixa" || bad "baixa GET"
 curl -s "$B/v/$UT" | grep -q 'Hola Anna' && ok "veure al navegador amb camps" || bad "view"
+curl -s "$B/u/$UT" | grep -q 'Dona&#039;m de baixa d&#039;aquesta llista' && ok "ofereix la baixa de la llista" || bad "opció de llista"
 expect "baixa en un clic (RFC 8058)" "$(curl -s -X POST "$B/u/$UT" -d 'List-Unsubscribe=One-Click')" "OK"
+expect "un clic: fora de la llista" "$(sql "SELECT lc.status FROM list_contacts lc JOIN contacts c ON c.id=lc.contact_id WHERE c.email='anna@exemple.cat' AND lc.list_id=$LIST")" "unsubscribed"
+expect "un clic: continua subscrita al projecte" "$(sql "SELECT status FROM contacts WHERE email='anna@exemple.cat'")" "subscribed"
+curl -s -X POST "$B/u/$UT" -d scope=all | grep -q 'Ja no rebràs més correus' && ok "baixa de tot" || bad "baixa de tot"
 expect "contacte de baixa" "$(sql "SELECT status FROM contacts WHERE email='anna@exemple.cat'")" "unsubscribed"
-expect "enllaç manipulat" "$(curl -s -o /dev/null -w '%{http_code}' "$B/u/${UT%?}x")" "404"
+expect "enllaç manipulat" "$(curl -s -o /dev/null -w '%{http_code}' "$B/u/${UT%%.*}.AAAAAAAAAAAA")" "404"
 
 echo "== Sincronització"
 post /sincronitzacio -d type=api -d name="Clients API" -d list_id=$LIST -d active=1 >/dev/null
@@ -152,6 +156,48 @@ J2=$(mktemp); T2=$(curl -s -c $J2 -b $J2 "$B/login" | grep -o 'name="_csrf" valu
 curl -s -c $J2 -b $J2 -X POST $B/login -d "_csrf=$T2&email=editora@soportic.es&password=contrasenya456" -o /dev/null
 expect "editora: no veu el projecte 1" "$(curl -s -c $J2 -b $J2 -o /dev/null -w '%{http_code}' $B/campanyes/$CID)" "404"
 expect "editora: sense administració" "$(curl -s -c $J2 -b $J2 -o /dev/null -w '%{http_code}' $B/configuracio)" "403"
+
+echo "== Formularis d'alta"
+post /formularis -d title="Butlletí Emergencing" -d "lists[]=$LIST" -d "fields[]=first_name" -d "required[]=first_name" -d language=ca -d double_optin=1 -d active=1 >/dev/null
+FS=$(sql "SELECT slug FROM forms WHERE title='Butlletí Emergencing'"); expect "adreça del formulari" "$FS" "butlleti-emergencing"
+PAGE=$(curl -s "$B/f/$FS"); echo "$PAGE" | grep -q 'name="website"' && ok "pàgina pública amb camp parany" || bad "pàgina pública"
+STAMP=$(echo "$PAGE" | grep -o 'name="_t" value="[^"]*"' | cut -d'"' -f4)
+curl -s -X POST "$B/f/$FS" --data-urlencode "_t=$STAMP" -d "email=rapid@bot.cat&first_name=Bot&consent=1" | grep -q 'No s&#039;ha pogut enviar' && ok "rebutja enviaments massa ràpids" || bad "temps mínim"
+sleep 2
+curl -s -X POST "$B/f/$FS" --data-urlencode "_t=$STAMP" -d "email=parany@bot.cat&first_name=Bot&consent=1&website=http://spam" | grep -q 'No s&#039;ha pogut enviar' && ok "rebutja el camp parany" || bad "parany"
+curl -s -X POST "$B/f/$FS" --data-urlencode "_t=$STAMP" -d "email=laia@form.cat&consent=1" | grep -q 'Omple el camp' && ok "camp obligatori" || bad "obligatori"
+curl -s -X POST "$B/f/$FS" --data-urlencode "_t=$STAMP" -d "email=laia@form.cat&first_name=Laia" | grep -q 'Cal que acceptis' && ok "consentiment obligatori" || bad "consentiment"
+R=$(curl -s -X POST "$B/f/$FS" --data-urlencode "_t=$STAMP" -d "email=laia@form.cat&first_name=Laia&consent=1")
+echo "$R" | grep -q 'revisa\|Gairebé fet' && ok "doble confirmació: demana confirmar" || bad "doble confirmació: ${R:0:300}"
+expect "encara no és contacte" "$(sql "SELECT COUNT(*) FROM contacts WHERE email='laia@form.cat'")" "0"
+grep 'POST /v3.1/send' storage/logs/mock.log | tail -1 | grep -q 'Confirma la teva subscripció' && ok "correu de confirmació enviat" || bad "correu de confirmació"
+TK=$(sql "SELECT token FROM form_signups WHERE email='laia@form.cat'")
+curl -s "$B/f/$FS/confirma/$TK" | grep -q 'Subscripció confirmada' && ok "enllaç de confirmació" || bad "confirmació"
+expect "apuntada a la llista" "$(sql "SELECT lc.status FROM list_contacts lc JOIN contacts c ON c.id=lc.contact_id WHERE c.email='laia@form.cat' AND lc.list_id=$LIST")" "subscribed"
+expect "prova de consentiment" "$(sql "SELECT COUNT(*) FROM events e JOIN contacts c ON c.id=e.contact_id WHERE c.email='laia@form.cat' AND e.type='consent'")" "1"
+FID=$(sql "SELECT id FROM forms WHERE slug='$FS'")
+post /formularis/$FID -d title="Butlletí Emergencing" -d slug=$FS -d "lists[]=$LIST" -d language=ca -d active=1 >/dev/null
+curl -s -X POST "$B/f/$FS" --data-urlencode "_t=$STAMP" -d "email=anna@exemple.cat&consent=1" | grep -q 'Gràcies' && ok "sense doble confirmació: alta directa" || bad "alta directa"
+expect "torna a subscriure qui s'apunta" "$(sql "SELECT status FROM contacts WHERE email='anna@exemple.cat'")" "subscribed"
+expect "torna a la llista" "$(sql "SELECT lc.status FROM list_contacts lc JOIN contacts c ON c.id=lc.contact_id WHERE c.email='anna@exemple.cat' AND lc.list_id=$LIST")" "subscribed"
+curl -s "$B/f/$FS?embed=1" | grep -q 'class="embed"' && ok "versió per incrustar" || bad "embed"
+
+echo "== Importar i exportar plantilles"
+SPEC=$(curl -s -c $J -b $J "$B/plantilles/format"); echo "$SPEC" | grep -q 'soportic-mailing-template' && ok "guia del format per a Claude" || bad "guia"
+EX=$(echo "$SPEC" | awk '/^## Exemple complet/{f=1} f&&/^```json/{g=1;next} g&&/^```/{exit} g')
+R=$(curl -s -c $J -b $J -X POST "$B/plantilles/importa" -F "_csrf=$T" -F "json=Aquí tens la plantilla:
+\`\`\`json
+$EX
+\`\`\`" -o /dev/null -w '%{redirect_url}')
+TID=$(sql "SELECT id FROM templates WHERE name='Butlletí mensual'")
+[ -n "$TID" ] && ok "importa el JSON de Claude (amb text i \`\`\`)" || bad "importació: $R"
+expect "blocs importats" "$(sql "SELECT JSON_LENGTH(doc, '$.langs.ca.doc.blocks') FROM templates WHERE id=$TID")" "10"
+OUT=$(curl -s -c $J -b $J "$B/plantilles/$TID/exporta"); echo "$OUT" | grep -q '"format": "soportic-mailing-template"' && ok "exporta en el mateix format" || bad "exportació"
+echo "$OUT" > /tmp/exported.json
+curl -s -c $J -b $J -X POST "$B/plantilles/importa" -F "_csrf=$T" -F "file=@/tmp/exported.json;type=application/json" -F "name=Reimportada" -o /dev/null
+expect "torna a importar l'exportació" "$(sql "SELECT JSON_LENGTH(doc, '$.langs.ca.doc.blocks') FROM templates WHERE name='Reimportada'")" "10"
+curl -s -c $J -b $J -X POST "$B/plantilles/importa" -F "_csrf=$T" -F 'json={"format":"altra-cosa"}' -o /dev/null
+expect "rebutja un format desconegut" "$(sql "SELECT COUNT(*) FROM templates WHERE name='Plantilla importada'")" "0"
 
 echo "== Actualització OTA i còpies"
 post /actualitzacio/copia >/dev/null; ls storage/backups/*.sql.gz >/dev/null 2>&1 && ok "còpia de seguretat" || bad "còpia"

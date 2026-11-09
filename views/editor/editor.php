@@ -53,6 +53,7 @@ $svg = static fn (string $p, int $s = 16): string => '<svg width="' . $s . '" he
             <div class="ml-menu-pop">
                 <button type="button" id="me-history">Historial de versions<small>Mira i recupera versions anteriors</small></button>
                 <?php if (!$isTemplate): ?><button type="button" id="me-test">Envia una prova<small>A una o més adreces</small></button><?php endif; ?>
+                <?php if ($isTemplate): ?><a href="/plantilles/<?= (int) $row['id'] ?>/exporta" id="me-export-json">Exporta (.json)<small>Desa primer els canvis</small></a><?php endif; ?>
                 <button type="button" id="me-astemplate"><?= $isTemplate ? 'Crea una plantilla a partir d\'aquesta' : 'Desa com a plantilla' ?><small>Una còpia a «Plantilles»</small></button>
             </div>
         </details>

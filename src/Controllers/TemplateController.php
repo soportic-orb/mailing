@@ -8,8 +8,10 @@ use Mailing\Core\Auth;
 use Mailing\Core\DB;
 use Mailing\Editor\Brand;
 use Mailing\Editor\Document;
+use Mailing\Editor\TemplateFormat;
 use Mailing\Services\Activity;
 use Mailing\Services\Campaigns;
+use Mailing\Services\Contacts;
 
 final class TemplateController extends Controller
 {
@@ -65,6 +67,62 @@ final class TemplateController extends Controller
         DB::exec("DELETE FROM doc_versions WHERE owner_type = 'template' AND owner_id = ?", [$t['id']]);
         Activity::log('template.deleted', $t['name'], $this->pid());
         $this->done('Plantilla eliminada. Les campanyes que se\'n van fer no canvien.', '/plantilles');
+    }
+
+    /** Import a template (JSON file or pasted text, e.g. designed by Claude). */
+    public function import(): never
+    {
+        $project = $this->project();
+        $raw = '';
+        $f = $_FILES['file'] ?? null;
+        if ($f && ($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+            if ($f['size'] > 2 * 1024 * 1024) {
+                $this->fail('El fitxer és massa gran (màxim 2 MB).', '/plantilles');
+            }
+            $raw = (string) file_get_contents($f['tmp_name']);
+        } else {
+            $raw = (string) input('json', '');
+        }
+        if (trim($raw) === '') {
+            $this->fail('Tria un fitxer o enganxa el JSON de la plantilla.', '/plantilles');
+        }
+        try {
+            $r = TemplateFormat::import($raw, $project['default_language'] ?: 'ca');
+        } catch (\RuntimeException $e) {
+            $this->fail('No s\'ha pogut importar: ' . $e->getMessage(), '/plantilles');
+        }
+        $name = str_input('name', 190) ?: ($r['name'] ?: 'Plantilla importada');
+        $global = input('global') === '1' && Auth::isAdmin();
+        $now = now_utc();
+        $id = DB::insert('templates', ['project_id' => $global ? null : $project['id'], 'name' => $name, 'doc' => Document::encode($r['doc']), 'version' => 1,
+            'created_by' => Auth::id(), 'updated_by' => Auth::id(), 'created_at' => $now, 'updated_at' => $now]);
+        Campaigns::snapshot('template', $id, 1, $name, $r['doc']);
+        Activity::log('template.imported', $name, (int) $project['id']);
+        $msg = 'Plantilla «' . $name . '» importada.' . ($r['warnings'] ? ' Avisos: ' . implode(' ', $r['warnings']) : ' Revisa-la a l\'editor.');
+        flash($r['warnings'] ? 'err' : 'ok', $msg);
+        redirect('/plantilles/' . $id . '/editor');
+    }
+
+    public function export(string $id): never
+    {
+        $t = $this->find((int) $id);
+        $file = (Contacts::fieldKey($t['name']) ?: 'plantilla') . '.mailing.json';
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . str_replace('_', '-', $file) . '"');
+        header('Cache-Control: no-store');
+        echo TemplateFormat::export((string) $t['name'], Document::decode($t['doc']));
+        exit;
+    }
+
+    /** The format guide to give Claude (Markdown). */
+    public function format(): never
+    {
+        header('Content-Type: text/markdown; charset=utf-8');
+        if (input('baixa') === '1') {
+            header('Content-Disposition: attachment; filename="format-plantilles-mailing.md"');
+        }
+        echo TemplateFormat::spec();
+        exit;
     }
 
     public function preview(string $id): never

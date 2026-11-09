@@ -98,16 +98,26 @@ final class Webhooks
         return true;
     }
 
-    /** Unsubscribe from a message (own link, one-click header or Mailjet event). */
-    public static function unsubscribe(array $m, string $via): void
+    /**
+     * Unsubscribe from a message (own link, one-click header or Mailjet event).
+     * $lists: leave only these lists (ids); empty = stop every email of the project.
+     */
+    public static function unsubscribe(array $m, string $via, array $lists = []): void
     {
-        if ($m['unsub_at']) {
-            return;
+        $lists = array_values(array_filter(array_map('intval', $lists)));
+        if ($lists && $m['contact_id']) {
+            DB::exec("UPDATE list_contacts SET status = 'unsubscribed' WHERE contact_id = ? AND list_id IN (" . DB::in($lists) . ')', array_merge([(int) $m['contact_id']], $lists));
+            $names = implode(', ', DB::column('SELECT name FROM lists WHERE id IN (' . DB::in($lists) . ')', $lists));
+            $detail = $via . ' · llista: ' . $names;
+        } else {
+            $detail = $via . ' · totes les comunicacions';
+            if ($m['contact_id']) {
+                Contacts::setStatus((int) $m['contact_id'], 'unsubscribed', $via);
+            }
         }
-        DB::update('messages', ['unsub_at' => now_utc()], 'id = ?', [$m['id']]);
-        DB::insert('events', ['message_id' => $m['id'], 'campaign_id' => $m['campaign_id'], 'contact_id' => $m['contact_id'], 'type' => 'unsub', 'detail' => $via, 'created_at' => now_utc()]);
-        if ($m['contact_id']) {
-            Contacts::setStatus((int) $m['contact_id'], 'unsubscribed', $via);
+        if (!$m['unsub_at']) {
+            DB::update('messages', ['unsub_at' => now_utc()], 'id = ?', [$m['id']]);
         }
+        DB::insert('events', ['message_id' => $m['id'], 'campaign_id' => $m['campaign_id'], 'contact_id' => $m['contact_id'], 'type' => 'unsub', 'detail' => mb_substr($detail, 0, 500), 'created_at' => now_utc()]);
     }
 }

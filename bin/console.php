@@ -10,6 +10,7 @@ declare(strict_types=1);
  *   php bin/console.php backup             database backup to storage/backups
  *   php bin/console.php update             OTA update from GitHub
  *   php bin/console.php user <email> <pw>  create / reset an administrator
+ *   php bin/console.php template-format   template format guide (Markdown)
  */
 if (PHP_SAPI !== 'cli') {
     exit(1);
@@ -38,6 +39,9 @@ switch ($cmd) {
         $r = (new Updater())->apply();
         echo $r['log'] . "\n";
         exit($r['ok'] ? 0 : 1);
+    case 'template-format':
+        echo Mailing\Editor\TemplateFormat::spec();
+        break;
     case 'user':
         [$email, $pw] = [strtolower((string) ($argv[2] ?? '')), (string) ($argv[3] ?? '')];
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($pw) < 10) {

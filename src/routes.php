@@ -25,6 +25,9 @@ $r->get('/api/v1/ping', [C\ApiController::class, 'ping'], $pub);
 $r->post('/api/v1/contacts', [C\ApiController::class, 'contacts'], $pub);
 $r->post('/api/v1/contacts/unsubscribe', [C\ApiController::class, 'unsubscribe'], $pub);
 $r->post('/api/v1/contacts/remove', [C\ApiController::class, 'remove'], $pub);
+$r->get('/f/{slug:[a-z0-9-]+}', [C\PublicFormController::class, 'show'], $pub);
+$r->post('/f/{slug:[a-z0-9-]+}', [C\PublicFormController::class, 'submit'], $pub);
+$r->get('/f/{slug:[a-z0-9-]+}/confirma/{token:[A-Za-z0-9]+}', [C\PublicFormController::class, 'confirm'], $pub);
 $r->get('/cron/{key}', [C\ApiController::class, 'cron'], $pub);
 
 // Session
@@ -73,6 +76,9 @@ $r->post('/editor/tradueix', [C\EditorController::class, 'translate'], $pe);
 // Templates
 $r->get('/plantilles', [C\TemplateController::class, 'index'], $p);
 $r->post('/plantilles', [C\TemplateController::class, 'store'], $pe);
+$r->post('/plantilles/importa', [C\TemplateController::class, 'import'], $pe);
+$r->get('/plantilles/format', [C\TemplateController::class, 'format'], $p);
+$r->get('/plantilles/{id:\d+}/exporta', [C\TemplateController::class, 'export'], $p);
 $r->post('/plantilles/{id:\d+}/duplica', [C\TemplateController::class, 'duplicate'], $pe);
 $r->post('/plantilles/{id:\d+}/elimina', [C\TemplateController::class, 'destroy'], $pe);
 $r->get('/plantilles/{id:\d+}/previsualitza', [C\TemplateController::class, 'preview'], $p);
@@ -109,6 +115,14 @@ $r->post('/segments', [C\SegmentController::class, 'save'], $pe);
 $r->post('/segments/{id:\d+}', [C\SegmentController::class, 'save'], $pe);
 $r->post('/segments/compta', [C\SegmentController::class, 'count'], $p);
 $r->post('/segments/{id:\d+}/elimina', [C\SegmentController::class, 'destroy'], $pe);
+
+// Signup forms
+$r->get('/formularis', [C\FormController::class, 'index'], $p);
+$r->get('/formularis/nou', [C\FormController::class, 'edit'], $pe);
+$r->get('/formularis/{id:\d+}', [C\FormController::class, 'edit'], $p);
+$r->post('/formularis', [C\FormController::class, 'save'], $pe);
+$r->post('/formularis/{id:\d+}', [C\FormController::class, 'save'], $pe);
+$r->post('/formularis/{id:\d+}/elimina', [C\FormController::class, 'destroy'], $pe);
 
 // Senders
 $r->get('/remitents', [C\SenderController::class, 'index'], $p);
@@ -166,7 +180,7 @@ if (Updater::inMaintenance() && !str_starts_with($path, '/img/') && !str_starts_
 }
 
 // No cron? Signed-in pages move the queue along (after the response is sent).
-if (!preg_match('#^/(cron|webhook|img|api|u|v)/#', $path)) {
+if (!preg_match('#^/(cron|webhook|img|api|u|v|f)/#', $path)) {
     Cron::maybeInline();
 }
 

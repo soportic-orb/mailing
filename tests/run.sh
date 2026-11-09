@@ -30,6 +30,8 @@ curl -s -c $J -b $J -X POST http://127.0.0.1:8080/login -d "_csrf=$T&email=admin
 T=$(curl -s -c $J -b $J http://127.0.0.1:8080/ | grep -o 'name="csrf-token" content="[^"]*"' | cut -d'"' -f4)
 curl -s -c $J -b $J -X POST http://127.0.0.1:8080/projectes --data-urlencode "_csrf=$T" -d "name=Emergencing&website=emergencing.com&company=Soportic+SL&default_language=ca" --data-urlencode "color=#d6336c" --data-urlencode "postal_address=Carrer Major 1, Barcelona" -o /dev/null
 curl -s -c $J -b $J -X POST http://127.0.0.1:8080/projectes --data-urlencode "_csrf=$T" -d "name=SysRevAI&website=sysrevai.com&default_language=en" --data-urlencode "color=#2563a8" -o /dev/null
+# The format guide in docs/ must match the code that generates it.
+php bin/console.php template-format | diff -q - docs/format-plantilles.md >/dev/null || { echo "docs/format-plantilles.md no està al dia: php bin/console.php template-format > docs/format-plantilles.md"; exit 1; }
 rm -f storage/logs/deprecated-*.log
 DB_NAME=$DB MYSQL="mysql -uroot ${MYSQL_ARGS:-}" bash tests/smoke.sh
 # Deprecations are only logged in production; in tests they fail the run.
