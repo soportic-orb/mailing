@@ -40,8 +40,9 @@ final class Campaigns
         return in_array($c['status'], ['draft', 'scheduled', 'cancelled', 'failed'], true);
     }
 
-    public static function create(array $project, string $name, ?int $templateId, ?int $senderId): int
+    public static function create(array $project, string $name, ?int $templateId, ?int $senderId, ?string $lang = null): int
     {
+        $lang = $lang && isset(Document::LANGS[$lang]) ? $lang : ($project['default_language'] ?: 'ca');
         $doc = null;
         if ($templateId) {
             $t = DB::one('SELECT doc FROM templates WHERE id = ? AND (project_id = ? OR project_id IS NULL)', [$templateId, $project['id']]);
@@ -51,8 +52,9 @@ final class Campaigns
         }
         if (!$doc) {
             \Mailing\Editor\Brand::apply($project);
-            $doc = Document::blank($project['default_language'] ?: 'ca');
+            $doc = Document::blank($lang);
         }
+        $doc = Document::withLanguage($doc, $lang);
         $now = now_utc();
         $id = DB::insert('campaigns', [
             'project_id' => $project['id'], 'name' => mb_substr($name, 0, 190), 'subject' => Document::subject($doc),
@@ -228,7 +230,7 @@ final class Campaigns
             throw new \RuntimeException('Tria primer l\'adreça d\'emissió (remitent) de la campanya.');
         }
         $doc = Document::decode($c['doc']);
-        $html = json_decode((string) $c['html'], true) ?: Document::render($doc, $project);
+        $html = Document::render($doc, $project);
         $lang = $lang && isset($doc['langs'][$lang]) ? $lang : $doc['primary'];
         $messages = [];
         foreach ($emails as $email) {

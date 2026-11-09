@@ -6,7 +6,8 @@
     <button class="btn secondary" type="button" onclick="document.getElementById('imp').showModal()">Importa</button>
     <form method="post" action="/plantilles" class="btns">
         <?= csrf_field() ?>
-        <input class="input" name="name" placeholder="Nom de la plantilla" style="width:240px">
+        <input class="input" name="name" placeholder="Nom de la plantilla" style="width:220px">
+        <select class="input" name="language" style="width:auto" aria-label="Idioma de la plantilla" title="Idioma en què s'escriu la plantilla"><?php $pl = \Mailing\Core\Context::project()['default_language'] ?? 'ca'; foreach (Document::LANGS as $k => $v): ?><option value="<?= e($k) ?>" <?= $k === $pl ? 'selected' : '' ?>><?= e($v) ?></option><?php endforeach; ?></select>
         <?php if (Auth::isAdmin()): ?><label class="check" style="margin:0"><input type="checkbox" name="global" value="1"> Comuna</label><?php endif; ?>
         <button class="btn" type="submit">+ Nova plantilla</button>
     </form>
@@ -45,7 +46,7 @@ document.getElementById('copy-spec').addEventListener('click', function () {
     <div class="tpl" style="cursor:default">
         <?php include __DIR__ . '/../partials/thumb.php'; ?>
         <b><?= e($t['name']) ?></b>
-        <span class="small muted"><?= $t['project_id'] === null ? '<span class="pill info">Comuna</span> ' : '' ?><?= count($doc['langs']) > 1 ? e(implode(' · ', array_map('strtoupper', array_keys($doc['langs'])))) . ' · ' : '' ?>editada <?= e(ago($t['updated_at'])) ?></span>
+        <span class="small muted"><?= $t['project_id'] === null ? '<span class="pill info">Comuna</span> ' : '' ?><?= e(implode(' · ', array_map('strtoupper', array_keys($doc['langs'])))) ?> · editada <?= e(ago($t['updated_at'])) ?></span>
         <div class="btns">
             <?php if ($canEdit): ?><a class="btn sm" href="/plantilles/<?= (int) $t['id'] ?>/editor">Edita</a><?php endif; ?>
             <a class="btn sm secondary" href="/plantilles/<?= (int) $t['id'] ?>/previsualitza" target="_blank">Mira-la</a>

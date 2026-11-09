@@ -29,7 +29,8 @@ final class TemplateController extends Controller
         $name = str_input('name', 190) ?: 'Plantilla nova';
         $global = input('global') === '1' && Auth::isAdmin();
         Brand::apply($project);
-        $doc = Document::blank($project['default_language'] ?: 'ca');
+        $lang = str_input('language', 5);
+        $doc = Document::blank(isset(Document::LANGS[$lang]) ? $lang : ($project['default_language'] ?: 'ca'));
         $now = now_utc();
         $id = DB::insert('templates', ['project_id' => $global ? null : $project['id'], 'name' => $name, 'doc' => Document::encode($doc), 'version' => 1,
             'created_by' => Auth::id(), 'updated_by' => Auth::id(), 'created_at' => $now, 'updated_at' => $now]);

@@ -86,6 +86,15 @@ final class ProjectController extends Controller
             Activity::log('project.created', $name, $pid);
             Context::switchTo($pid);
         }
+        // "Why you receive this email" footer text, per language (empty = default text).
+        $why = [];
+        foreach (array_keys(Document::LANGS) as $l) {
+            $v = trim(str_replace(["\r", "\n"], ' ', (string) (input('footer_why', [])[$l] ?? '')));
+            if ($v !== '') {
+                $why[$l] = mb_substr($v, 0, 500);
+            }
+        }
+        \Mailing\Core\Settings::set('footer_why_' . $pid, $why ? json_encode($why, JSON_UNESCAPED_UNICODE) : '');
         $this->done('Projecte desat.', $p ? '/projectes' : '/remitents');
     }
 

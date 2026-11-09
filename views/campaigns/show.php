@@ -100,7 +100,7 @@ $tomorrow = (new DateTimeImmutable('tomorrow', app_tz()))->format('Y-m-d');
             <?php include __DIR__ . '/../partials/thumb.php'; ?>
             <div>
                 <?php foreach ($doc['langs'] as $code => $l): ?>
-                    <p style="margin:0 0 10px"><?php if (count($doc['langs']) > 1): ?><span class="pill"><?= e(Document::LANGS[$code]) ?></span> <?php endif; ?><b><?= e($l['subject'] ?: 'Sense assumpte') ?></b><br><span class="small muted"><?= e($l['preheader'] ?: 'Sense text de previsualització') ?></span></p>
+                    <p style="margin:0 0 10px"><span class="pill"><?= e(Document::LANGS[$code]) ?></span> <b><?= e($l['subject'] ?: 'Sense assumpte') ?></b><br><span class="small muted"><?= e($l['preheader'] ?: 'Sense text de previsualització') ?></span></p>
                 <?php endforeach; ?>
                 <p class="small muted" style="margin:0">Versió <?= (int) $c['version'] ?> · editada <?= e(ago($c['updated_at'])) ?> · <a href="/campanyes/<?= (int) $c['id'] ?>/previsualitza" target="_blank">Previsualitza</a></p>
                 <?php if (count($doc['langs']) > 1): ?><p class="small muted" style="margin:8px 0 0">Cada contacte rep l'idioma de la seva fitxa; si no el té o no hi és, el <?= e(Document::LANGS[$doc['primary']]) ?>.</p><?php endif; ?>

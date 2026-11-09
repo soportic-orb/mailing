@@ -20,6 +20,10 @@ $v = static fn (string $k): string => e(is_scalar($old[$k] ?? null) ? (string) $
 .pf-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 .pf-foot { margin-top: 18px; font-size: 12px; color: var(--muted); text-align: center; }
 body.embed { background: transparent; }
+.pf-party { font-size: 84px; line-height: 1; text-align: center; margin: 14px 0 8px; animation: pf-pop .7s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes pf-pop { from { transform: scale(.2) rotate(-25deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+.pf-confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
+@media (prefers-reduced-motion: reduce) { .pf-party { animation: none; } }
 body.embed .pf { min-height: 0; padding: 0; display: block; }
 body.embed .pf-card { box-shadow: none; padding: 4px 2px; width: 100%; }
 </style>
@@ -31,7 +35,40 @@ body.embed .pf-card { box-shadow: none; padding: 4px 2px; width: 100%; }
     <?php endif; ?>
     <h1><?= e($f['title']) ?></h1>
     <?php if (!empty($state['done'])): ?>
-        <div class="alert <?= $state['ok'] ? 'ok' : 'warn' ?>" role="status" style="margin:10px 0 0"><?= e($state['message']) ?></div>
+        <?php $party = $state['ok'] && empty($state['pending']); ?>
+        <?php if ($party): ?><div class="pf-party" aria-hidden="true">🎉</div><?php endif; ?>
+        <div class="alert <?= $state['ok'] ? 'ok' : 'warn' ?>" role="status" style="margin:10px 0 0<?= $party ? ';text-align:center' : '' ?>"><?= e($state['message']) ?></div>
+        <?php if ($party): ?>
+        <canvas class="pf-confetti" id="pf-confetti" aria-hidden="true"></canvas>
+        <script>
+        (function () {
+            // Confeti: es dibuixa uns segons i desapareix. No es mostra si la persona ha demanat menys moviment.
+            if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            var c = document.getElementById('pf-confetti'), x = c.getContext('2d'), W, H, parts = [], start = performance.now();
+            var colors = [<?= json_encode($accent) ?>, '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#a855f7', '#facc15'];
+            function size() { W = c.width = innerWidth * devicePixelRatio; H = c.height = innerHeight * devicePixelRatio; }
+            size(); addEventListener('resize', size);
+            for (var i = 0; i < 180; i++) {
+                var fromLeft = i % 2 === 0;
+                parts.push({ x: fromLeft ? 0 : W, y: H * (0.55 + Math.random() * 0.3),
+                    vx: (fromLeft ? 1 : -1) * (6 + Math.random() * 10) * devicePixelRatio, vy: -(10 + Math.random() * 14) * devicePixelRatio,
+                    w: (6 + Math.random() * 6) * devicePixelRatio, h: (8 + Math.random() * 10) * devicePixelRatio,
+                    r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3, color: colors[i % colors.length] });
+            }
+            function frame(t) {
+                var age = t - start, alpha = Math.max(0, 1 - Math.max(0, age - 3200) / 1200);
+                x.clearRect(0, 0, W, H);
+                parts.forEach(function (p) {
+                    p.vy += 0.35 * devicePixelRatio; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+                    x.save(); x.globalAlpha = alpha; x.translate(p.x, p.y); x.rotate(p.r); x.fillStyle = p.color;
+                    x.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(p.r * 2))); x.restore();
+                });
+                if (alpha > 0) requestAnimationFrame(frame); else c.remove();
+            }
+            requestAnimationFrame(frame);
+        })();
+        </script>
+        <?php endif; ?>
     <?php else: ?>
         <?php if ($f['intro']): ?><div class="pf-intro"><?php foreach (preg_split('/\R{2,}/', trim((string) $f['intro'])) as $par): ?><p><?= nl2br(e($par)) ?></p><?php endforeach; ?></div><?php endif; ?>
         <?php if (!empty($state['error'])): ?><div class="alert err" role="alert"><?= e($state['error']) ?></div><?php endif; ?>

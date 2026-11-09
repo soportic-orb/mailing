@@ -78,6 +78,8 @@ final class EditorController extends Controller
                 'images' => $images,
                 'sources' => new \stdClass(),
                 'langs' => Document::LANGS,
+                'tail' => Document::TAIL,
+                'brand' => ['name' => (string) $project['name'], 'why' => array_combine(array_keys(Document::LANGS), array_map(static fn ($l) => Document::why($project, $l), array_keys(Document::LANGS))), 'address' => trim(implode(' · ', array_filter([(string) ($project['company'] ?? ''), (string) ($project['postal_address'] ?? '')])))],
                 'merge' => MergeTags::available(Contacts::fields((int) $project['id'])) + ['unsubscribe_url' => 'Enllaç de baixa', 'view_url' => 'Enllaç «veure al navegador»'],
                 'me' => (string) (Auth::user()['email'] ?? ''),
                 'csrf' => \Mailing\Core\Csrf::token(),

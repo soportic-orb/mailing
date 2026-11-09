@@ -13,6 +13,9 @@
             <?php if (!$senders): ?><small>Aquest projecte encara no té remitents. <a href="/remitents">Afegeix-ne un</a>.</small><?php endif; ?>
         </label>
     </div>
+    <label class="field" style="max-width:360px"><span>Idioma del correu</span>
+        <select class="input" name="language"><?php foreach (Document::LANGS as $k => $v): ?><option value="<?= e($k) ?>" <?= $k === ($project['default_language'] ?: 'ca') ? 'selected' : '' ?>><?= e($v) ?></option><?php endforeach; ?></select>
+        <small>L'idioma en què l'escrius. El peu legal (baixa de la llista, «veure al navegador») surt en aquest idioma. Després pots afegir-hi més idiomes.</small></label>
     <span class="field-label">Comença a partir de</span>
     <div class="tpls" style="margin-bottom:18px">
         <label class="tpl"><input type="radio" name="template_id" value="" checked><div class="blank">+</div><b>Correu bàsic</b><span class="muted small">Capçalera, títol, text, botó i peu</span></label>
