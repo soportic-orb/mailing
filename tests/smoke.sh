@@ -117,6 +117,23 @@ grep '"/v3.1/send"\|POST /v3.1/send' storage/logs/mock.log | tail -1 | grep -q '
 grep 'POST /v3.1/send' storage/logs/mock.log | tail -1 | grep -q 'List-Unsubscribe-Post' && ok "capçalera de baixa en un clic" || bad "List-Unsubscribe"
 grep 'POST /v3.1/send' storage/logs/mock.log | tail -1 | grep -q '\[ES\] Hola Joan' && ok "Joan rep el correu en castellà" || bad "castellà"
 
+echo "== Idioma forçat a la campanya"
+post /campanyes/$CID/duplica >/dev/null
+CFL=$(sql "SELECT MAX(id) FROM campaigns")
+post /campanyes/$CFL -d name="Butlletí forçat" -d sender_id=1 -d "lists[]=$LIST" -d "segments[]=$SEG" -d lang=xx >/dev/null
+expect "idioma no vàlid: automàtic" "$(sql "SELECT JSON_UNQUOTE(JSON_EXTRACT(audience,'$.lang')) FROM campaigns WHERE id=$CFL")" ""
+post /campanyes/$CFL -d name="Butlletí forçat" -d sender_id=1 -d "lists[]=$LIST" -d "segments[]=$SEG" -d lang=es >/dev/null
+expect "idioma forçat desat" "$(sql "SELECT JSON_UNQUOTE(JSON_EXTRACT(audience,'$.lang')) FROM campaigns WHERE id=$CFL")" "es"
+P=$(curl -s -c $J -b $J $B/campanyes/$CFL)
+echo "$P" | grep -q 'value="es" selected>Tothom en' && ok "selector d'idioma a la configuració" || bad "selector idioma"
+echo "$P" | grep -q 'idioma forçat' && ok "comprovacions amb l'idioma forçat" || bad "comprovació idioma forçat"
+post /campanyes/$CFL/programa -d when=now >/dev/null
+php bin/worker.php >/dev/null
+expect "idioma forçat: tothom en castellà" "$(sql "SELECT COUNT(*) FROM messages WHERE campaign_id=$CFL AND language<>'es'")" "0"
+expect "idioma forçat: hi ha destinataris" "$(sql "SELECT COUNT(*) FROM messages WHERE campaign_id=$CFL")" "5"
+grep 'POST /v3.1/send' storage/logs/mock.log | tail -1 | grep -q '\[ES\] Hola Anna' && ok "Anna (català) rep el castellà" || bad "forçat castellà"
+post /campanyes/$CFL/elimina >/dev/null
+
 echo "== Seguiment (webhooks)"
 WK=$(sql "SELECT v FROM settings WHERE k='webhook_key'")
 M1=$(sql "SELECT id FROM messages WHERE campaign_id=$CID AND email='anna@exemple.cat'")

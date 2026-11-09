@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mailing\Services;
 
 use Mailing\Core\DB;
+use Mailing\Editor\Document;
 
 /**
  * Who receives a campaign: {"all": bool, "lists": [ids], "segments": [ids], "exclude_lists": [ids]}.
@@ -16,7 +17,9 @@ final class Audience
     {
         $a = is_array($a) ? $a : (json_decode((string) $a, true) ?: []);
         $ids = static fn ($v): array => array_values(array_unique(array_filter(array_map('intval', (array) $v))));
-        return ['all' => !empty($a['all']), 'lists' => $ids($a['lists'] ?? []), 'segments' => $ids($a['segments'] ?? []), 'exclude_lists' => $ids($a['exclude_lists'] ?? [])];
+        // "lang" forces the language version every recipient gets ('' = each contact's own).
+        $lang = is_string($a['lang'] ?? null) && isset(Document::LANGS[$a['lang']]) ? $a['lang'] : '';
+        return ['all' => !empty($a['all']), 'lists' => $ids($a['lists'] ?? []), 'segments' => $ids($a['segments'] ?? []), 'exclude_lists' => $ids($a['exclude_lists'] ?? []), 'lang' => $lang];
     }
 
     public static function isEmpty(array $a): bool

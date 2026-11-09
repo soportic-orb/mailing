@@ -112,10 +112,23 @@ final class Document
         return (string) ($doc['langs'][$lang ?? '']['subject'] ?? $doc['langs'][$doc['primary']]['subject'] ?? '');
     }
 
-    /** Language used for a contact: theirs if the email has it, otherwise the primary. */
-    public static function langFor(array $doc, ?string $contactLang): string
+    /**
+     * Language used for a contact: the forced one of the campaign if the email
+     * has it, otherwise theirs if the email has it, otherwise the primary.
+     */
+    public static function langFor(array $doc, ?string $contactLang, ?string $forced = null): string
     {
+        if ($forced && isset($doc['langs'][$forced])) {
+            return $forced;
+        }
         return $contactLang && isset($doc['langs'][$contactLang]) ? $contactLang : $doc['primary'];
+    }
+
+    /** The forced language of a campaign audience, if the email has that version. */
+    public static function forcedLang(array $doc, array $audience): ?string
+    {
+        $l = (string) ($audience['lang'] ?? '');
+        return $l !== '' && isset($doc['langs'][$l]) ? $l : null;
     }
 
     /**

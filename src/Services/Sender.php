@@ -54,10 +54,12 @@ final class Sender
             // Rendered now, with the project's current footer and branding; kept for "view in browser".
             $project = DB::one('SELECT * FROM projects WHERE id = ?', [$c['project_id']]);
             DB::update('campaigns', ['html' => json_encode(Document::render($doc, $project), JSON_UNESCAPED_UNICODE)], 'id = ?', [$c['id']]);
-            $contacts = Audience::contacts(Audience::clean($c['audience']), (int) $c['project_id']);
+            $audience = Audience::clean($c['audience']);
+            $forced = Document::forcedLang($doc, $audience);
+            $contacts = Audience::contacts($audience, (int) $c['project_id']);
             $ins = DB::pdo()->prepare('INSERT IGNORE INTO messages (campaign_id, contact_id, email, language, status) VALUES (?, ?, ?, ?, ?)');
             foreach ($contacts as $ct) {
-                $ins->execute([$c['id'], $ct['id'], $ct['email'], Document::langFor($doc, $ct['language'] ?: null), 'queued']);
+                $ins->execute([$c['id'], $ct['id'], $ct['email'], Document::langFor($doc, $ct['language'] ?: null, $forced), 'queued']);
             }
             $n = (int) DB::value('SELECT COUNT(*) FROM messages WHERE campaign_id = ?', [$c['id']]);
             DB::update('campaigns', ['recipients' => $n], 'id = ?', [$c['id']]);

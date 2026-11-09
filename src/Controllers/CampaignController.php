@@ -104,7 +104,7 @@ final class CampaignController extends Controller
         if ($reply !== '' && !valid_email($reply)) {
             $this->fail('L\'adreça de resposta no és vàlida.');
         }
-        $audience = Audience::clean(['all' => input('all') === '1', 'lists' => input('lists', []), 'segments' => input('segments', []), 'exclude_lists' => input('exclude_lists', [])]);
+        $audience = Audience::clean(['all' => input('all') === '1', 'lists' => input('lists', []), 'segments' => input('segments', []), 'exclude_lists' => input('exclude_lists', []), 'lang' => str_input('lang', 5)]);
         DB::update('campaigns', [
             'name' => $name !== '' ? $name : $c['name'], 'sender_id' => $sender, 'reply_to' => $reply ?: null,
             'audience' => json_encode($audience), 'updated_by' => Auth::id(), 'updated_at' => now_utc(),
