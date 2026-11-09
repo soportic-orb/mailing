@@ -184,10 +184,12 @@ curl -s -X POST "$B/f/$FS" --data-urlencode "_t=$STAMP" -d "email=laia@form.cat&
 curl -s -X POST "$B/f/$FS" --data-urlencode "_t=$STAMP" -d "email=laia@form.cat&first_name=Laia" | grep -q 'Cal que acceptis' && ok "consentiment obligatori" || bad "consentiment"
 R=$(curl -s -X POST "$B/f/$FS" --data-urlencode "_t=$STAMP" -d "email=laia@form.cat&first_name=Laia&consent=1")
 echo "$R" | grep -q 'revisa\|Gairebé fet' && ok "doble confirmació: demana confirmar" || bad "doble confirmació: ${R:0:300}"
+echo "$R" | grep -q 'class="pf-party"' && bad "no hi ha d'haver celebració abans de confirmar" || ok "sense celebració mentre falta confirmar"
 expect "encara no és contacte" "$(sql "SELECT COUNT(*) FROM contacts WHERE email='laia@form.cat'")" "0"
 grep 'POST /v3.1/send' storage/logs/mock.log | tail -1 | grep -q 'Confirma la teva subscripció' && ok "correu de confirmació enviat" || bad "correu de confirmació"
 TK=$(sql "SELECT token FROM form_signups WHERE email='laia@form.cat'")
-curl -s "$B/f/$FS/confirma/$TK" | grep -q 'Subscripció confirmada' && ok "enllaç de confirmació" || bad "confirmació"
+CF=$(curl -s "$B/f/$FS/confirma/$TK"); echo "$CF" | grep -q 'Subscripció confirmada' && ok "enllaç de confirmació" || bad "confirmació"
+echo "$CF" | grep -q 'class="pf-party"' && echo "$CF" | grep -q 'id="pf-confetti"' && ok "🎉 i confeti en confirmar" || bad "celebració"
 expect "apuntada a la llista" "$(sql "SELECT lc.status FROM list_contacts lc JOIN contacts c ON c.id=lc.contact_id WHERE c.email='laia@form.cat' AND lc.list_id=$LIST")" "subscribed"
 expect "prova de consentiment" "$(sql "SELECT COUNT(*) FROM events e JOIN contacts c ON c.id=e.contact_id WHERE c.email='laia@form.cat' AND e.type='consent'")" "1"
 FID=$(sql "SELECT id FROM forms WHERE slug='$FS'")

@@ -56,7 +56,7 @@ final class PublicFormController
         if ($r['ok'] && empty($r['pending']) && $f['redirect_url'] && !isset($_GET['embed'])) {
             redirect((string) $f['redirect_url']);
         }
-        $this->render($f, $p, $r['ok'] ? ['done' => true, 'ok' => true, 'message' => $r['message']] : ['error' => $r['message'], 'old' => $_POST]);
+        $this->render($f, $p, $r['ok'] ? ['done' => true, 'ok' => true, 'pending' => !empty($r['pending']), 'message' => $r['message']] : ['error' => $r['message'], 'old' => $_POST]);
     }
 
     public function confirm(string $slug, string $token): never
