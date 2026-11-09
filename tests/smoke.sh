@@ -216,6 +216,13 @@ expect "torna a importar l'exportació" "$(sql "SELECT JSON_LENGTH(doc, '$.langs
 curl -s -c $J -b $J -X POST "$B/plantilles/importa" -F "_csrf=$T" -F 'json={"format":"altra-cosa"}' -o /dev/null
 expect "rebutja un format desconegut" "$(sql "SELECT COUNT(*) FROM templates WHERE name='Plantilla importada'")" "0"
 
+TJ='{"format":"soportic-mailing-template","version":1,"name":"Bilingue","primary":"ca","langs":{"ca":{"subject":"Hola","preheader":"","doc":{"blocks":[{"type":"heading","text":"Títol en català"}]}},"es":{"subject":"Hola","preheader":"","doc":{"blocks":[{"type":"heading","text":"Título en castellano"}]}}}}'
+curl -s -c $J -b $J -X POST "$B/plantilles/importa" -F "_csrf=$T" -F "json=$TJ" -o /dev/null
+TB=$(sql "SELECT id FROM templates WHERE name='Bilingue'")
+curl -s -c $J -b $J "$B/plantilles/$TB/previsualitza?lang=es" | grep -q 'Título en castellano' && ok "previsualització de plantilla en l'idioma triat" || bad "previsualització per idioma"
+curl -s -c $J -b $J "$B/plantilles/$TB/previsualitza" | grep -q 'Títol en català' && ok "sense idioma: el principal" || bad "idioma principal"
+curl -s -c $J -b $J "$B/plantilles" | grep -q "previsualitza?lang=es" && ok "enllaç per idioma al llistat" || bad "enllaços per idioma"
+
 echo "== Actualització OTA i còpies"
 post /actualitzacio/copia >/dev/null; ls storage/backups/*.sql.gz >/dev/null 2>&1 && ok "còpia de seguretat" || bad "còpia"
 

@@ -49,7 +49,13 @@ document.getElementById('copy-spec').addEventListener('click', function () {
         <span class="small muted"><?= $t['project_id'] === null ? '<span class="pill info">Comuna</span> ' : '' ?><?= e(implode(' · ', array_map('strtoupper', array_keys($doc['langs'])))) ?> · editada <?= e(ago($t['updated_at'])) ?></span>
         <div class="btns">
             <?php if ($canEdit): ?><a class="btn sm" href="/plantilles/<?= (int) $t['id'] ?>/editor">Edita</a><?php endif; ?>
-            <a class="btn sm secondary" href="/plantilles/<?= (int) $t['id'] ?>/previsualitza" target="_blank">Mira-la</a>
+            <?php if (count($doc['langs']) > 1): ?>
+                <details class="ml-menu"><summary class="btn sm secondary">Mira-la ▾</summary><div class="ml-menu-pop" style="min-width:180px">
+                    <?php foreach ($doc['langs'] as $code => $_): ?><a href="/plantilles/<?= (int) $t['id'] ?>/previsualitza?lang=<?= e($code) ?>" target="_blank"><?= e(Document::LANGS[$code]) ?></a><?php endforeach; ?>
+                </div></details>
+            <?php else: ?>
+                <a class="btn sm secondary" href="/plantilles/<?= (int) $t['id'] ?>/previsualitza" target="_blank">Mira-la</a>
+            <?php endif; ?>
             <?php if (Auth::canEdit()): ?>
             <details class="ml-menu"><summary class="btn sm secondary" aria-label="Més">⋯</summary><div class="ml-menu-pop">
                 <a href="/plantilles/<?= (int) $t['id'] ?>/exporta">Exporta (.json)<small>Per a una altra instal·lació o per donar-la a Claude</small></a>
