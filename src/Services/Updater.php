@@ -115,7 +115,6 @@ final class Updater
             curl_setopt_array($ch, [CURLOPT_FILE => $fh, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 300, CURLOPT_HTTPHEADER => $hdr]);
             curl_exec($ch);
             $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-            curl_close($ch);
             fclose($fh);
             if ($status !== 200 || filesize($zipFile) < 1000) {
                 throw new \RuntimeException('No s\'ha pogut descarregar l\'actualització (HTTP ' . $status . ').');

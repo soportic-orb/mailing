@@ -17,6 +17,11 @@ final class ErrorHandler
             if (!(error_reporting() & $no)) {
                 return false;
             }
+            // Deprecations (new PHP versions on the server) are logged, never fatal.
+            if ($no === E_DEPRECATED || $no === E_USER_DEPRECATED) {
+                logger('Deprecated: ' . $msg, ['file' => $file . ':' . $line], 'deprecated');
+                return true;
+            }
             throw new \ErrorException($msg, 0, $no, $file, $line);
         });
 

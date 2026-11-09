@@ -30,4 +30,9 @@ curl -s -c $J -b $J -X POST http://127.0.0.1:8080/login -d "_csrf=$T&email=admin
 T=$(curl -s -c $J -b $J http://127.0.0.1:8080/ | grep -o 'name="csrf-token" content="[^"]*"' | cut -d'"' -f4)
 curl -s -c $J -b $J -X POST http://127.0.0.1:8080/projectes --data-urlencode "_csrf=$T" -d "name=Emergencing&website=emergencing.com&company=Soportic+SL&default_language=ca" --data-urlencode "color=#d6336c" --data-urlencode "postal_address=Carrer Major 1, Barcelona" -o /dev/null
 curl -s -c $J -b $J -X POST http://127.0.0.1:8080/projectes --data-urlencode "_csrf=$T" -d "name=SysRevAI&website=sysrevai.com&default_language=en" --data-urlencode "color=#2563a8" -o /dev/null
+rm -f storage/logs/deprecated-*.log
 DB_NAME=$DB MYSQL="mysql -uroot ${MYSQL_ARGS:-}" bash tests/smoke.sh
+# Deprecations are only logged in production; in tests they fail the run.
+if ls storage/logs/deprecated-*.log >/dev/null 2>&1; then
+    echo "Avisos de funcions obsoletes en aquesta versió de PHP:"; cat storage/logs/deprecated-*.log; exit 1
+fi

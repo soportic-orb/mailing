@@ -105,8 +105,6 @@ final class Images
         ob_start();
         $alpha ? imagepng($dst, null, 7) : imagejpeg($dst, null, 86);
         $out = (string) ob_get_clean();
-        imagedestroy($src);
-        imagedestroy($dst);
         return $out !== '' ? [$out, $alpha ? 'image/png' : 'image/jpeg', $w, $h] : null;
     }
 
