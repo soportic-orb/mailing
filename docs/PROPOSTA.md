@@ -1,6 +1,6 @@
 # Proposta — Plataforma de Mailing (mailing.soportic.es)
 
-> Estat: **proposta per validar**. No s'ha desenvolupat res encara.
+> Estat: **validada i en desenvolupament** (fases 0, 1 i 2 fetes; vegeu §9).
 
 ## 1. Objectiu
 
@@ -188,17 +188,35 @@ programació, estat), `campaign_versions`, `campaign_audiences`, `send_queue`,
 | **2. Planificació i analítica** | Calendari amb arrossegar, segments dinàmics, estadístiques completes i mapa de clics, fitxa de contacte amb historial, pausa de campanyes, exportacions. | |
 | **3. Extres** | Formularis d'alta amb doble opt-in, test A/B, IA (redacció i traducció), multillengua, contingut RSS/WordPress, aprovació d'enviaments. | |
 
-## 8. Decisions a validar
+## 8. Decisions preses
 
-1. **Una sola organització o multi-client?** Si Soportic ha de gestionar el
-   mailing de diversos clients (cadascun amb el seu compte Mailjet, remitents i
-   contactes separats), cal un model *multi-espai* des de la fase 0. És la decisió
-   que més condiciona l'arquitectura.
-2. **Base de l'editor**: proposo el del **Tauler** (PHP + JS sense build) en lloc
-   del de Torns (React/Next.js), perquè no requereix compilació i l'OTA queda simple.
-3. **Mailjet per API v3.1** (recomanat) o només SMTP?
-4. **Volum previst** (contactes i enviaments/mes) i pla de Mailjet, per ajustar el ritme de la cua.
-5. **Idiomes** de la interfície: català i castellà?
-6. **Importacions d'origen**: cal sincronitzar contactes des d'algun sistema
-   existent (BeDesk, Botble, Torns) o n'hi ha prou amb CSV/XLSX?
-7. **Accés**: usuaris locals, o també inici de sessió amb Microsoft/Google?
+| # | Pregunta | Decisió |
+|---|---|---|
+| 1 | Una organització o diversos clients | **Multiprojecte**: Soportic envia als clients de cada projecte (Emergencing, SysRevAI…), amb contactes, llistes, remitents i campanyes separats; usuaris amb accés per projecte. Mailjet comú, amb compte propi opcional per projecte. |
+| 2 | Editor | **El del Tauler** (portal de gestió Aina), en una plataforma nova. |
+| 3 | Mailjet | **API Send v3.1**. |
+| 4 | Volum | Campanyes de **200-300 correus**: cua senzilla (600/minut per defecte, configurable). |
+| 5 | Idioma de la interfície | **Català**. |
+| 6 | Origen dels contactes | **Sincronització** (API, MySQL, JSON) **i importació** (CSV, Excel). |
+| 7 | Accés | **Usuaris locals** (administrador/a, editor/a, només consulta). |
+| + | Editor | **Traducció automàtica** del contingut (Claude o OpenAI) i **imatges amb OpenAI**. Correus multillengua: cada contacte rep el seu idioma. |
+
+## 9. Estat
+
+Fet:
+
+- Fase 0: esquelet PHP sense dependències, instal·lador web, usuaris i rols,
+  projectes, configuració xifrada, OTA amb còpia i retorn enrere, cron i
+  alternativa sense cron.
+- Fase 1: contactes, llistes, camps, importació CSV/XLSX, supressió, remitents
+  de Mailjet, editor del Tauler, plantilles, campanyes amb comprovacions, prova,
+  enviament immediat o programat, baixa en un clic, webhooks i estadístiques.
+- Fase 2: calendari amb arrossegar, segments dinàmics, informe complet (gràfic
+  per hores, clics per enllaç, destinataris), fitxa del contacte amb historial,
+  pausa i represa, exportacions, sincronització (API, MySQL, JSON).
+- De la fase 3: IA (textos, traducció i imatges) i multillengua.
+
+Pendent: mapa de clics dibuixat damunt del correu (ara és una taula de clics
+per enllaç), enviament per zona horària, test A/B d'assumpte, formularis d'alta incrustables amb doble
+opt-in, bloc de contingut RSS/WordPress, aprovació abans d'enviar, recuperació
+de contrasenya per correu i doble factor.

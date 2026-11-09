@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# End-to-end smoke test against a running instance (php -S) and the mock server.
+#   php -S 127.0.0.1:8080 -t public public/index.php &
+#   php -S 127.0.0.1:8099 tests/mock_server.php &
+#   bash tests/smoke.sh
+set -u
+B=${B:-http://127.0.0.1:8080}
+DB=${DB_NAME:-mailing}
+MYSQL=${MYSQL:-"mysql -uroot"}
+J=$(mktemp); FAIL=0
+ok()   { echo "  ✓ $1"; }
+bad()  { echo "  ✗ $1"; FAIL=1; }
+tok()  { curl -s -c $J -b $J "$B$1" | grep -oE 'name="csrf-token" content="[^"]*"|name="_csrf" value="[^"]*"' | head -1 | sed -E 's/.*(content|value)="([^"]*)"/\2/'; }
+post() { local url=$1; shift; curl -s -c $J -b $J -X POST "$B$url" --data-urlencode "_csrf=$T" "$@" -o /dev/null -w "%{http_code} %{redirect_url}"; }
+ajax() { local url=$1; shift; curl -s -c $J -b $J -X POST "$B$url" -H "X-CSRF-TOKEN: $T" -H "X-Requested-With: XMLHttpRequest" -H "Accept: application/json" "$@"; }
+sql()  { $MYSQL --default-character-set=utf8mb4 -N $DB -e "$1"; }
+expect() { [ "$2" = "$3" ] && ok "$1 ($3)" || bad "$1: esperat «$3», obtingut «$2»"; }
+
+echo "== Sessió"
+T=$(tok /login)
+r=$(post /login --data-urlencode email=admin@soportic.es --data-urlencode password=contrasenya123); [[ $r == 302* ]] && ok "login" || bad "login $r"
+T=$(tok /)
+post /projecte -d project_id=1 >/dev/null
+
+echo "== Configuració i remitents"
+post /configuracio -d section=mailjet -d mailjet_key=KEY123 -d mailjet_secret=SECRET456 -d send_rate=600 >/dev/null
+expect "clau Mailjet xifrada" "$(sql "SELECT secret FROM settings WHERE k='mailjet_key'")" "1"
+post /configuracio -d section=ai -d ai_enabled=1 -d anthropic_key=sk-ant-test -d openai_key=sk-test -d ai_default_text=claude -d claude_model=claude-opus-5-5 -d openai_text_model=gpt-5 -d openai_image_model=gpt-image-1 >/dev/null
+post /remitents -d email=info@emergencing.com -d name=Emergencing -d reply_to=hola@emergencing.com -d register=1 >/dev/null
+expect "remitent validat a Mailjet" "$(sql "SELECT mailjet_status FROM senders WHERE email='info@emergencing.com'")" "Active"
+post /remitents/sincronitza >/dev/null; ok "sincronització de remitents"
+
+echo "== Llistes, camps i importació"
+post /llistes -d name=Clients -d description=Actius >/dev/null
+LIST=$(sql "SELECT id FROM lists WHERE name='Clients' AND project_id=1")
+printf 'Correu;Nom;Cognoms;Idioma;Empresa\nanna@exemple.cat;Anna;Puig;ca;Hospital del Mar\njoan@exemple.cat;Joan;Vila;es;Clínica Sol\nreject@exemple.cat;Rebutjat;X;;\nmalament-no-es-correu;X;Y;;\nmarta@exemple.cat;Marta;Roca;en;CAP Nord\n' > /tmp/import.csv
+UP=$(curl -s -c $J -b $J -X POST "$B/contactes/importa" -F "_csrf=$T" -F "list_id=$LIST" -F "file=@/tmp/import.csv;type=text/csv")
+ITOK=$(echo "$UP" | grep -o 'name="token" value="[^"]*"' | cut -d'"' -f4)
+echo "$UP" | grep -q 'value="email" selected' && ok "detecta la columna del correu" || bad "mapatge automàtic"
+r=$(post /contactes/importa/executa -d token=$ITOK -d filename=import.csv -d "map[0]=email" -d "map[1]=first_name" -d "map[2]=last_name" -d "map[3]=language" -d "map[4]=new" -d "newname[4]=Empresa" -d list_id=$LIST -d overwrite=1 -d consent=1)
+expect "contactes importats" "$(sql "SELECT COUNT(*) FROM contacts WHERE project_id=1")" "4"
+expect "camp personalitzat creat" "$(sql "SELECT \`key\` FROM fields WHERE project_id=1")" "empresa"
+expect "valor del camp" "$(sql "SELECT JSON_UNQUOTE(JSON_EXTRACT(fields,'$.empresa')) FROM contacts WHERE email='anna@exemple.cat'")" "Hospital del Mar"
+expect "a la llista" "$(sql "SELECT COUNT(*) FROM list_contacts WHERE list_id=$LIST")" "4"
+r=$(post /contactes -d email=pere@exemple.cat -d first_name=Pere -d status=subscribed -d consent=1 -d "lists[]=$LIST"); expect "contacte manual" "$(sql "SELECT COUNT(*) FROM list_contacts WHERE list_id=$LIST")" "5"
+curl -s -c $J -b $J "$B/contactes?q=anna" | grep -q 'anna@exemple.cat' && ok "cerca de contactes" || bad "cerca"
+curl -s -c $J -b $J "$B/contactes/exporta" | grep -q 'Hospital del Mar' && ok "exportació CSV" || bad "exportació"
+
+echo "== Segments"
+C=$(ajax /segments/compta --data-urlencode 'rules={"match":"all","conditions":[{"type":"field","field":"camp:empresa","op":"contains","value":"Hosp"}]}')
+expect "compte del segment" "$(echo $C | grep -o '"count":[0-9]*')" '"count":1'
+post /segments --data-urlencode name=Hospitals --data-urlencode 'rules={"match":"any","conditions":[{"type":"field","field":"camp:empresa","op":"contains","value":"Hosp"},{"type":"field","field":"language","op":"eq","value":"en"}]}' >/dev/null
+SEG=$(sql "SELECT id FROM segments WHERE name='Hospitals'")
+curl -s -c $J -b $J "$B/segments" | grep -q '<b>2</b>' && ok "segment amb 2 contactes" || bad "segment"
+
+echo "== Campanya i editor"
+r=$(post /campanyes -d name="Butlletí de novembre" -d sender_id=1 -d template_id=)
+CID=$(sql "SELECT MAX(id) FROM campaigns")
+[[ $r == *"/campanyes/$CID/editor"* ]] && ok "campanya creada → editor" || bad "creació $r"
+ED=$(curl -s -c $J -b $J "$B/campanyes/$CID/editor")
+echo "$ED" | grep -q 'id="me-cfg"' && ok "pàgina de l'editor" || bad "editor"
+DOC=$(echo "$ED" | sed -n 's/.*<script type="application\/json" id="me-cfg">\(.*\)<\/script>.*/\1/p' | php -r '$c=json_decode(stream_get_contents(STDIN),true); $d=$c["doc"]; $p=$d["primary"]; $d["langs"][$p]["subject"]="Hola {{nom|amiga}}, novetats de novembre"; $d["langs"][$p]["preheader"]="Tot el que ha passat aquest mes"; $d["langs"][$p]["doc"]["blocks"][2]["html"]="<p>Hola {{nom}}, de {{camp:empresa}}.</p><script>alert(1)</script>"; $d["langs"][$p]["doc"]["blocks"][3]["href"]="https://emergencing.com/novetats"; echo json_encode($d, JSON_UNESCAPED_UNICODE);')
+S=$(ajax /campanyes/$CID/doc -H "Content-Type: application/json" -d "{\"doc\":$DOC,\"base_version\":1}")
+echo "$S" | grep -q '"version":2' && ok "desar el document (versió 2)" || bad "desar: $S"
+S=$(ajax /campanyes/$CID/doc -H "Content-Type: application/json" -d "{\"doc\":$DOC,\"base_version\":1}")
+echo "$S" | grep -q 'versió més nova' && ok "detecta conflicte de versions" || bad "conflicte: $S"
+sql "SELECT doc FROM campaigns WHERE id=$CID" | grep -q '<script>' && bad "script no filtrat" || ok "HTML filtrat (sense <script>)"
+TR=$(ajax /editor/tradueix -H "Content-Type: application/json" -d "{\"from\":\"ca\",\"to\":\"es\",\"subject\":\"Hola\",\"preheader\":\"Resum\",\"doc\":$(echo $DOC | php -r '$d=json_decode(stream_get_contents(STDIN),true); echo json_encode($d["langs"][$d["primary"]]["doc"]);')}")
+echo "$TR" | grep -q '"subject":"\[ES\] Hola"' && ok "traducció automàtica" || bad "traducció: ${TR:0:200}"
+DOC2=$(echo "$DOC" | php -r '$d=json_decode(stream_get_contents(STDIN),true); $tr=json_decode($argv[1],true); $d["langs"]["es"]=["subject"=>$tr["subject"],"preheader"=>$tr["preheader"],"doc"=>$tr["doc"]]; echo json_encode($d, JSON_UNESCAPED_UNICODE);' "$TR")
+S=$(ajax /campanyes/$CID/doc -H "Content-Type: application/json" -d "{\"doc\":$DOC2,\"base_version\":2}")
+echo "$S" | grep -q '"version":3' && ok "desar amb dos idiomes" || bad "desar idiomes: $S"
+AI=$(ajax /editor/ia/text -H "Content-Type: application/json" -d '{"provider":"claude","prompt":"Escriu una benvinguda","format":"paragraphs"}')
+echo "$AI" | grep -q 'Text generat' && ok "IA: text" || bad "IA text: $AI"
+IM=$(ajax /editor/ia/imatge -F prompt="Un hospital" -F shape=landscape -F style=photo -F no_text=1)
+echo "$IM" | grep -q '"src":"img:' && ok "IA: imatge (OpenAI) desada" || bad "IA imatge: $IM"
+IMG=$(echo "$IM" | grep -o '/img/[A-Za-z0-9]*' | head -1); expect "imatge pública" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' $B$IMG)" "200 image/jpeg"
+PV=$(curl -s -c $J -b $J "$B/campanyes/$CID/previsualitza?lang=es")
+echo "$PV" | grep -q '{{unsubscribe_url}}' && ok "previsualització amb peu de baixa" || bad "previsualització"
+echo "$PV" | grep -q 'lang="es"' && ok "versió en castellà" || bad "lang"
+H=$(curl -s -c $J -b $J "$B/campanyes/$CID/versions"); echo "$H" | grep -q '"version":3' && ok "historial de versions" || bad "versions"
+
+echo "== Destinataris, comprovacions i enviament"
+post /campanyes/$CID -d name="Butlletí de novembre" -d sender_id=1 -d "lists[]=$LIST" -d "segments[]=$SEG" >/dev/null
+curl -s -c $J -b $J "$B/campanyes/$CID/destinataris?lists[]=$LIST" | grep -q '"count":5' && ok "recompte de destinataris" || bad "recompte"
+r=$(ajax /campanyes/$CID/prova -H "Content-Type: application/json" -d '{"emails":"proves@soportic.es"}'); echo "$r" | grep -q '"ok":true' && ok "correu de prova" || bad "prova: $r"
+grep -q '"Subject":"\[PROVA\] Hola amiga' storage/logs/mock.log && ok "camps a la prova ({{nom|amiga}})" || bad "camps prova"
+D=$(date -d tomorrow +%Y-%m-%d)
+post /campanyes/$CID/programa -d date=$D -d time=10:30 >/dev/null
+expect "programada" "$(sql "SELECT status FROM campaigns WHERE id=$CID")" "scheduled"
+curl -s -c $J -b $J "$B/calendari?mes=$(date -d tomorrow +%Y-%m)" | grep -q "Butlletí de novembre" && ok "apareix al calendari" || bad "calendari"
+D2=$(date -d '+3 days' +%Y-%m-%d)
+r=$(ajax /campanyes/$CID/data -H "Content-Type: application/json" -d "{\"date\":\"$D2\"}"); echo "$r" | grep -q '"ok":true' && ok "reprogramar arrossegant" || bad "moure: $r"
+post /campanyes/$CID/desprograma >/dev/null
+r=$(post /campanyes/$CID/programa -d when=now)
+php bin/worker.php -v > /tmp/worker.json; cat /tmp/worker.json | tr -d '\n ' | head -c 300; echo
+expect "campanya enviada" "$(sql "SELECT status FROM campaigns WHERE id=$CID")" "sent"
+expect "missatges enviats" "$(sql "SELECT COUNT(*) FROM messages WHERE campaign_id=$CID AND status='sent'")" "4"
+expect "rebutjat per Mailjet" "$(sql "SELECT COUNT(*) FROM messages WHERE campaign_id=$CID AND status='failed'")" "1"
+expect "idioma per contacte" "$(sql "SELECT language FROM messages WHERE campaign_id=$CID AND email='joan@exemple.cat'")" "es"
+grep '"/v3.1/send"\|POST /v3.1/send' storage/logs/mock.log | tail -1 | grep -q 'Hola Anna, de Hospital del Mar' && ok "camps personalitzats al correu" || bad "merge tags"
+grep 'POST /v3.1/send' storage/logs/mock.log | tail -1 | grep -q 'List-Unsubscribe-Post' && ok "capçalera de baixa en un clic" || bad "List-Unsubscribe"
+grep 'POST /v3.1/send' storage/logs/mock.log | tail -1 | grep -q '\[ES\] Hola Joan' && ok "Joan rep el correu en castellà" || bad "castellà"
+
+echo "== Seguiment (webhooks)"
+WK=$(sql "SELECT v FROM settings WHERE k='webhook_key'")
+M1=$(sql "SELECT id FROM messages WHERE campaign_id=$CID AND email='anna@exemple.cat'")
+M2=$(sql "SELECT id FROM messages WHERE campaign_id=$CID AND email='joan@exemple.cat'")
+M3=$(sql "SELECT id FROM messages WHERE campaign_id=$CID AND email='marta@exemple.cat'")
+NOW=$(date +%s)
+curl -s -X POST "$B/webhook/mailjet?key=$WK" -H "Content-Type: application/json" -d "[{\"event\":\"sent\",\"CustomID\":\"m$M1\",\"time\":$NOW},{\"event\":\"open\",\"CustomID\":\"m$M1\",\"time\":$NOW},{\"event\":\"click\",\"CustomID\":\"m$M1\",\"url\":\"https://emergencing.com/novetats\",\"time\":$NOW},{\"event\":\"bounce\",\"CustomID\":\"m$M2\",\"hard_bounce\":true,\"error\":\"user unknown\",\"time\":$NOW},{\"event\":\"spam\",\"CustomID\":\"m$M3\",\"time\":$NOW}]" | grep -q '"processed":5' && ok "5 esdeveniments processats" || bad "webhook"
+expect "webhook sense clau" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/webhook/mailjet?key=x" -d '[]')" "403"
+expect "rebot dur → contacte exclòs" "$(sql "SELECT status FROM contacts WHERE email='joan@exemple.cat'")" "bounced"
+expect "queixa → contacte exclòs" "$(sql "SELECT status FROM contacts WHERE email='marta@exemple.cat'")" "complained"
+RP=$(curl -s -c $J -b $J "$B/campanyes/$CID/informe")
+echo "$RP" | grep -q 'emergencing.com/novetats' && ok "informe: enllaç clicat" || bad "informe enllaços"
+echo "$RP" | grep -q '25,0 %' && ok "informe: taxa d'obertura (1/4)" || bad "informe taxa"
+curl -s -c $J -b $J "$B/campanyes/$CID/destinataris.csv" | grep -q 'anna@exemple.cat' && ok "exportació de destinataris" || bad "csv"
+
+echo "== Baixa i «veure al navegador»"
+UT=$(php -r 'require "src/bootstrap.php"; echo Mailing\Services\Links::token((int)$argv[1]);' $M1)
+curl -s "$B/u/$UT" | grep -q 'Vols deixar de rebre' && ok "pàgina de baixa" || bad "baixa GET"
+curl -s "$B/v/$UT" | grep -q 'Hola Anna' && ok "veure al navegador amb camps" || bad "view"
+expect "baixa en un clic (RFC 8058)" "$(curl -s -X POST "$B/u/$UT" -d 'List-Unsubscribe=One-Click')" "OK"
+expect "contacte de baixa" "$(sql "SELECT status FROM contacts WHERE email='anna@exemple.cat'")" "unsubscribed"
+expect "enllaç manipulat" "$(curl -s -o /dev/null -w '%{http_code}' "$B/u/${UT%?}x")" "404"
+
+echo "== Sincronització"
+post /sincronitzacio -d type=api -d name="Clients API" -d list_id=$LIST -d active=1 >/dev/null
+API=$(curl -s -c $J -b $J "$B/sincronitzacio" | grep -o 'mlg_[A-Za-z0-9]*' | head -1)
+[ -n "$API" ] && ok "clau d'API generada" || bad "token"
+expect "ping API" "$(curl -s -H "Authorization: Bearer $API" $B/api/v1/ping | grep -o '"ok":true')" '"ok":true'
+R=$(curl -s -X POST -H "Authorization: Bearer $API" -H "Content-Type: application/json" $B/api/v1/contacts -d '{"contacts":[{"email":"nou@api.cat","first_name":"Nou","language":"ca","external_id":"55","fields":{"pla":"Pro"}},{"email":"anna@exemple.cat","first_name":"Anna"}]}')
+echo "$R" | grep -q '"created":1' && ok "API: alta" || bad "API: $R"
+expect "API no re-subscriu qui és de baixa" "$(sql "SELECT status FROM contacts WHERE email='anna@exemple.cat'")" "unsubscribed"
+expect "API sense clau" "$(curl -s -o /dev/null -w '%{http_code}' -X POST $B/api/v1/contacts -d '{}')" "401"
+$MYSQL sourceapp -e "CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY, mail VARCHAR(190), nom VARCHAR(60), ciutat VARCHAR(60), newsletter TINYINT); REPLACE INTO users VALUES (1,'s1@sql.cat','Sílvia','Girona',1),(2,'s2@sql.cat','Sergi','Lleida',1),(3,'s3@sql.cat','Sara','Reus',0);"
+post /sincronitzacio -d type=mysql -d name="BD origen" -d new_list="Usuaris SQL" -d host=127.0.0.1 -d port=3306 -d database=sourceapp -d username=mailing -d password=secret123 --data-urlencode "query=SELECT mail AS email, nom AS first_name, id AS external_id, ciutat FROM users WHERE newsletter = 1" -d interval=360 -d mode=mirror -d active=1 -d test=1 >/dev/null
+expect "sincronització MySQL" "$(sql "SELECT COUNT(*) FROM contacts WHERE source LIKE 'sync:%' AND email LIKE 's%@sql.cat'")" "2"
+expect "columna extra → camp" "$(sql "SELECT JSON_UNQUOTE(JSON_EXTRACT(fields,'$.ciutat')) FROM contacts WHERE email='s1@sql.cat'")" "Girona"
+$MYSQL sourceapp -e "UPDATE users SET newsletter=0 WHERE id=2"
+SC=$(sql "SELECT id FROM connectors WHERE type='mysql'"); post /sincronitzacio/$SC/executa >/dev/null
+expect "mode mirall treu de la llista" "$(sql "SELECT COUNT(*) FROM list_contacts lc JOIN connectors c ON c.list_id=lc.list_id WHERE c.id=$SC")" "1"
+post /sincronitzacio -d type=mysql -d name="Perillosa" -d host=127.0.0.1 -d database=sourceapp -d username=mailing -d password=secret123 --data-urlencode "query=DELETE FROM users" -d active=1 -d test=1 >/dev/null
+expect "rebutja SQL que no és SELECT" "$(sql "SELECT last_status FROM connectors WHERE name='Perillosa'")" "error"
+
+echo "== Plantilles, usuaris i projectes"
+post /campanyes/$CID/com-a-plantilla -d name="Butlletí base" >/dev/null
+expect "desa com a plantilla" "$(sql "SELECT COUNT(*) FROM templates WHERE name='Butlletí base'")" "1"
+post /usuaris -d name=Editora -d email=editora@soportic.es -d role=editor -d password=contrasenya456 -d active=1 -d "projects[]=2" >/dev/null
+J2=$(mktemp); T2=$(curl -s -c $J2 -b $J2 "$B/login" | grep -o 'name="_csrf" value="[^"]*"' | cut -d'"' -f4)
+curl -s -c $J2 -b $J2 -X POST $B/login -d "_csrf=$T2&email=editora@soportic.es&password=contrasenya456" -o /dev/null
+expect "editora: no veu el projecte 1" "$(curl -s -c $J2 -b $J2 -o /dev/null -w '%{http_code}' $B/campanyes/$CID)" "404"
+expect "editora: sense administració" "$(curl -s -c $J2 -b $J2 -o /dev/null -w '%{http_code}' $B/configuracio)" "403"
+
+echo "== Actualització OTA i còpies"
+post /actualitzacio/copia >/dev/null; ls storage/backups/*.sql.gz >/dev/null 2>&1 && ok "còpia de seguretat" || bad "còpia"
+
+[ $FAIL = 0 ] && echo "TOT CORRECTE" || echo "HI HA ERRADES"
+exit $FAIL

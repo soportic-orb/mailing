@@ -1,0 +1,6 @@
+/.env
+/config/installed.lock
+/vendor/
+.phpunit.cache
+.DS_Store
+/storage/maintenance.flag
