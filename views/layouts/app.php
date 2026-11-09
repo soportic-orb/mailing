@@ -19,7 +19,7 @@ $accent = $project['color'] ?? '#ac1966';
 <meta name="csrf-token" content="<?= e(Csrf::token()) ?>">
 <meta name="robots" content="noindex">
 <title><?= e(($title ?? 'Mailing') . ' · Mailing Soportic') ?></title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23ac1966'/><path d='M7 11l9 6 9-6M7 10h18v13H7z' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/></svg>">
+<?= favicon_tag() ?>
 <link rel="stylesheet" href="/assets/app.css?v=<?= e(app_version()) ?>">
 <style>:root { --accent: <?= e($accent) ?>; --accent-dark: color-mix(in srgb, <?= e($accent) ?> 82%, #000); --accent-soft: color-mix(in srgb, <?= e($accent) ?> 12%, #fff); }</style>
 <?= \Mailing\Core\View::get('head') ?>
@@ -28,7 +28,7 @@ $accent = $project['color'] ?? '#ac1966';
 <div class="app-top">
     <header class="topbar">
         <div class="topbar-inner">
-            <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">✉</span><span class="brand-name">Mailing<small>Soportic</small></span></a>
+            <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"><?= brand_icon() ?></span><span class="brand-name">Mailing<small>Soportic</small></span></a>
             <?php if ($user && $projects): ?>
                 <form method="post" action="/projecte" class="proj-switch" title="Projecte amb què treballes">
                     <?= Csrf::field() ?>

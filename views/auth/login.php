@@ -1,4 +1,4 @@
-<span class="brand" style="margin-bottom:18px"><span class="brand-mark" aria-hidden="true">✉</span><span class="brand-name">Mailing<small>Soportic</small></span></span>
+<span class="brand" style="margin-bottom:18px"><span class="brand-mark" aria-hidden="true"><?= brand_icon() ?></span><span class="brand-name">Mailing<small>Soportic</small></span></span>
 <h1>Inicia la sessió</h1>
 <p class="muted" style="margin:0 0 18px">Plataforma d'enviaments de Soportic.</p>
 <form method="post" action="/login">
