@@ -17,6 +17,13 @@ Plataforma d'enviaments massius per als clients dels projectes de Soportic
 - **Contactes**: llistes, camps personalitzats (`{{camp:empresa}}`), segments
   dinàmics, importació CSV/Excel, exportació, RGPD (consentiment, exportació i
   supressió de dades), llista de supressió automàtica (rebots, queixes, baixes).
+- **Formularis d'alta**: pàgines públiques (`/f/…`) amb un formulari per
+  apuntar-se a les llistes, amb doble confirmació per correu opcional, prova
+  del consentiment, protecció antispam i codi per incrustar-les en una web.
+- **Baixa per llista**: l'enllaç del peu de cada correu permet deixar només la
+  llista que l'ha enviat o totes les comunicacions del projecte.
+- **Plantilles importables i exportables** en JSON (`.mailing.json`): Claude en
+  pot dissenyar una seguint la [guia del format](docs/format-plantilles.md).
 - **Sincronització** amb les altres plataformes: per API (en temps real), llegint
   la seva base de dades MySQL o una adreça JSON, cada N minuts.
 - **Campanyes**: comprovacions abans d'enviar, correu de prova, enviament
@@ -73,6 +80,14 @@ CloudPanel fa servir Nginx: el *vhost* per defecte d'un lloc PHP ja envia a
 
 *Configuració › IA*: clau d'Anthropic (Claude: textos i traducció) i/o
 d'OpenAI (imatges i textos). Models configurables.
+
+## Plantilles dissenyades per Claude
+
+A *Plantilles › Importa* hi ha la guia del format (també a
+[docs/format-plantilles.md](docs/format-plantilles.md)). Dona-la a Claude amb el
+que vols i demana-li el JSON; després enganxa la resposta (pot incloure text i
+```` ``` ````) o puja el fitxer. Cada plantilla es pot exportar en el mateix
+format, per passar-la a una altra instal·lació o perquè Claude la modifiqui.
 
 ## Sincronització amb les altres plataformes
 

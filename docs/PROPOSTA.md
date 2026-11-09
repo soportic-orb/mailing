@@ -214,9 +214,10 @@ Fet:
 - Fase 2: calendari amb arrossegar, segments dinàmics, informe complet (gràfic
   per hores, clics per enllaç, destinataris), fitxa del contacte amb historial,
   pausa i represa, exportacions, sincronització (API, MySQL, JSON).
-- De la fase 3: IA (textos, traducció i imatges) i multillengua.
+- De la fase 3: IA (textos, traducció i imatges), multillengua, formularis
+  d'alta amb doble opt-in, baixa per llista i importació/exportació de
+  plantilles (format JSON que Claude pot dissenyar).
 
 Pendent: mapa de clics dibuixat damunt del correu (ara és una taula de clics
-per enllaç), enviament per zona horària, test A/B d'assumpte, formularis d'alta incrustables amb doble
-opt-in, bloc de contingut RSS/WordPress, aprovació abans d'enviar, recuperació
+per enllaç), enviament per zona horària, test A/B d'assumpte, bloc de contingut RSS/WordPress, aprovació abans d'enviar, recuperació
 de contrasenya per correu i doble factor.

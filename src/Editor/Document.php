@@ -19,10 +19,10 @@ final class Document
 
     /** Footer text added to every email (with the unsubscribe link), per language. */
     private const TAIL = [
-        'ca' => ['why' => 'Reps aquest correu perquè formes part dels contactes de %s.', 'unsub' => 'Dona\'t de baixa', 'view' => 'Veure-ho al navegador'],
-        'es' => ['why' => 'Recibes este correo porque formas parte de los contactos de %s.', 'unsub' => 'Darse de baja', 'view' => 'Ver en el navegador'],
-        'en' => ['why' => 'You are receiving this email because you are a contact of %s.', 'unsub' => 'Unsubscribe', 'view' => 'View in your browser'],
-        'fr' => ['why' => 'Vous recevez ce message car vous faites partie des contacts de %s.', 'unsub' => 'Se désabonner', 'view' => 'Voir dans le navigateur'],
+        'ca' => ['why' => 'Reps aquest correu perquè formes part dels contactes de %s.', 'unsub' => 'Dona\'t de baixa d\'aquesta llista', 'view' => 'Veure-ho al navegador'],
+        'es' => ['why' => 'Recibes este correo porque formas parte de los contactos de %s.', 'unsub' => 'Darte de baja de esta lista', 'view' => 'Ver en el navegador'],
+        'en' => ['why' => 'You are receiving this email because you are a contact of %s.', 'unsub' => 'Unsubscribe from this list', 'view' => 'View in your browser'],
+        'fr' => ['why' => 'Vous recevez ce message car vous faites partie des contacts de %s.', 'unsub' => 'Se désabonner de cette liste', 'view' => 'Voir dans le navigateur'],
     ];
 
     public static function blank(string $lang = 'ca', ?array $doc = null, string $subject = '', string $preheader = ''): array

@@ -24,6 +24,10 @@ OTA copies files only). UI in Catalan; code and commits in English.
   `UPDATE_RAW_BASE`, `UPDATE_API_BASE`) are only for tests; never set them in
   production.
 
+- `docs/format-plantilles.md` is generated: after changing `MailDoc` or
+  `TemplateFormat`, run `php bin/console.php template-format > docs/format-plantilles.md`
+  (CI fails if it is out of date).
+
 ## Tests
 
 ```bash
