@@ -144,10 +144,10 @@ $steps = ['requisits' => 'Requisits', 'bd' => 'Base de dades', 'admin' => 'Admin
 $csrf = '<input type="hidden" name="csrf" value="' . h($S['csrf']) . '">';
 ?><!DOCTYPE html>
 <html lang="ca"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
-<title>Instal·lació · Mailing Soportic</title><link rel="stylesheet" href="/assets/app.css">
+<title>Instal·lació · Mailing Soportic</title><?= favicon_tag() ?><link rel="stylesheet" href="/assets/app.css">
 <style>.steps{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 20px}.steps span{font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;background:var(--fill);color:var(--muted)}.steps span.on{background:var(--accent);color:#fff}.bare-card{width:min(620px,100%)}</style>
 </head><body><div class="bare"><div class="bare-card">
-<span class="brand" style="margin-bottom:16px"><span class="brand-mark" aria-hidden="true">✉</span><span class="brand-name">Mailing<small>Instal·lació · versió <?= h(app_version()) ?></small></span></span>
+<span class="brand" style="margin-bottom:16px"><span class="brand-mark" aria-hidden="true"><?= brand_icon() ?></span><span class="brand-name">Mailing<small>Instal·lació · versió <?= h(app_version()) ?></small></span></span>
 <div class="steps"><?php foreach ($steps as $k => $l): ?><span class="<?= $k === $step ? 'on' : '' ?>"><?= h($l) ?></span><?php endforeach; ?></div>
 <?php if ($error): ?><div class="alert err"><?= h($error) ?></div><?php endif; ?>
 

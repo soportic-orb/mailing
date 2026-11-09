@@ -240,3 +240,15 @@ function logger(string $message, array $context = [], string $channel = 'app'): 
         . ($context ? ' ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '') . "\n";
     @file_put_contents(BASE_PATH . '/storage/logs/' . $channel . '-' . gmdate('Y-m') . '.log', $line, FILE_APPEND | LOCK_EX);
 }
+
+/** Platform icon (Tabler "mail-share"), drawn in the current text colour. */
+function brand_icon(int $size = 20): string
+{
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $size . '" height="' . $size . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+        . '<path d="M13 19h-8a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v6"/><path d="M3 7l9 6l9 -6"/><path d="M16 22l5 -5"/><path d="M21 21.5v-4.5h-4.5"/></svg>';
+}
+
+function favicon_tag(): string
+{
+    return '<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=' . e(app_version()) . '">';
+}
