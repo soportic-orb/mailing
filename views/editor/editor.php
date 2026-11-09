@@ -62,6 +62,9 @@ $svg = static fn (string $p, int $s = 16): string => '<svg width="' . $s . '" he
 
     <div class="me-meta">
         <?php if ($isTemplate): ?><label class="name">Nom de la plantilla <input type="text" id="me-name" maxlength="190" value="<?= e($row['name']) ?>"></label><?php endif; ?>
+        <label title="L'idioma en què està escrit aquest correu. El peu legal surt en aquest idioma.">Idioma del correu
+            <select id="me-lang-select" style="font:inherit;font-size:12.5px;padding:6px 9px;border:0;border-radius:8px;background:var(--fill, #f1f2f4)"></select>
+        </label>
         <label class="pre">Text de previsualització
             <input type="text" id="me-pre" maxlength="255" value="" placeholder="El resum que es veu a la safata d'entrada, al costat de l'assumpte">
         </label>

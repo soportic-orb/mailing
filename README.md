@@ -20,6 +20,9 @@ Plataforma d'enviaments massius per als clients dels projectes de Soportic
 - **Formularis d'alta**: pàgines públiques (`/f/…`) amb un formulari per
   apuntar-se a les llistes, amb doble confirmació per correu opcional, prova
   del consentiment, protecció antispam i codi per incrustar-les en una web.
+- **Idioma de cada correu i plantilla**: es tria en crear-los (i a l'editor);
+  el peu legal surt en aquest idioma i es veu a l'editor. El text «per què reps
+  aquest correu» es pot personalitzar per projecte i idioma.
 - **Baixa per llista**: l'enllaç del peu de cada correu permet deixar només la
   llista que l'ha enviat o totes les comunicacions del projecte.
 - **Plantilles importables i exportables** en JSON (`.mailing.json`): Claude en

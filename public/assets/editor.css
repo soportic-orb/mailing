@@ -171,3 +171,9 @@ dialog.me-prev { width:calc(100vw - 24px); max-width:1400px; height:calc(100vh -
 .me-merge code { font-size:11.5px; background:none; padding:0; color:var(--muted); }
 .me-meta .name input { min-width:220px; }
 
+
+/* Peu legal que la plataforma afegeix a tots els correus (vista prèvia, no editable) */
+.me-tail { padding: 18px 20px 26px; text-align: center; font-size: 11px; line-height: 17px; color: #8a909c; cursor: default; user-select: none; position: relative; }
+.me-tail p { margin: 0; }
+.me-tail a { color: #6b7280; text-decoration: underline; pointer-events: none; }
+.me-tail::before { content: 'Peu legal automàtic (en l\'idioma del correu)'; position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font: 600 10px system-ui, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: #b4b9c2; white-space: nowrap; }

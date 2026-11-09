@@ -61,7 +61,7 @@ final class CampaignController extends Controller
         if ($sender && !DB::value('SELECT id FROM senders WHERE id = ? AND project_id = ?', [$sender, $project['id']])) {
             $sender = null;
         }
-        $id = Campaigns::create($project, $name, int_input('template_id') ?: null, $sender);
+        $id = Campaigns::create($project, $name, int_input('template_id') ?: null, $sender, str_input('language', 5));
         Activity::log('campaign.created', $name, (int) $project['id']);
         redirect('/campanyes/' . $id . '/editor');
     }
@@ -227,7 +227,10 @@ final class CampaignController extends Controller
     public function preview(string $id): never
     {
         $c = $this->own('campaigns', (int) $id);
-        $html = json_decode((string) $c['html'], true) ?: [];
+        // Not sent yet: as it would go out now. Sent: exactly what was sent.
+        $html = in_array($c['status'], ['sending', 'paused', 'sent'], true)
+            ? (json_decode((string) $c['html'], true) ?: [])
+            : Document::render(Document::decode($c['doc']), $this->project());
         $lang = str_input('lang', 5);
         self::htmlResponse((string) ($html[$lang] ?? reset($html) ?: ''));
     }

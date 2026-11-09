@@ -79,6 +79,21 @@ PV=$(curl -s -c $J -b $J "$B/campanyes/$CID/previsualitza?lang=es")
 echo "$PV" | grep -q '{{unsubscribe_url}}' && ok "previsualització amb peu de baixa" || bad "previsualització"
 echo "$PV" | grep -q 'lang="es"' && ok "versió en castellà" || bad "lang"
 H=$(curl -s -c $J -b $J "$B/campanyes/$CID/versions"); echo "$H" | grep -q '"version":3' && ok "historial de versions" || bad "versions"
+post /projectes/1 -d name=Emergencing -d slug=emergencing -d website=https://emergencing.com -d company="Soportic SL" --data-urlencode "postal_address=Carrer Major 1, Barcelona" -d default_language=ca --data-urlencode "color=#d6336c" --data-urlencode "footer_why[ca]=Reps aquest butlletí perquè ets client de {projecte}." >/dev/null
+PV=$(curl -s -c $J -b $J "$B/campanyes/$CID/previsualitza?lang=ca"); echo "$PV" | grep -q 'Reps aquest butlletí perquè ets client de Emergencing.' && ok "text legal del peu personalitzat" || bad "text del peu"
+PV=$(curl -s -c $J -b $J "$B/campanyes/$CID/previsualitza?lang=es"); echo "$PV" | grep -q 'Recibes este correo porque formas parte de los contactos de Emergencing.' && ok "els altres idiomes mantenen el text per defecte" || bad "text per defecte"
+
+r=$(post /campanyes -d name="Campanya en castellà" -d sender_id=1 -d language=es)
+CES=$(sql "SELECT MAX(id) FROM campaigns")
+expect "idioma triat en crear la campanya" "$(sql "SELECT JSON_UNQUOTE(JSON_EXTRACT(doc,'$.primary')) FROM campaigns WHERE id=$CES")" "es"
+curl -s -c $J -b $J "$B/campanyes/$CES/previsualitza" | grep -q 'Darte de baja de esta lista' && ok "peu legal en castellà" || bad "peu en castellà"
+post /plantilles -d name="Template EN" -d language=en >/dev/null
+TEN=$(sql "SELECT id FROM templates WHERE name='Template EN'")
+curl -s -c $J -b $J "$B/plantilles/$TEN/previsualitza" | grep -q 'Unsubscribe from this list' && ok "plantilla: peu legal en anglès" || bad "peu en anglès"
+r=$(post /campanyes -d name="Des de plantilla EN en català" -d template_id=$TEN -d language=ca)
+CFT=$(sql "SELECT MAX(id) FROM campaigns")
+expect "plantilla en un altre idioma: el correu queda en l'idioma triat" "$(sql "SELECT JSON_UNQUOTE(JSON_EXTRACT(doc,'$.primary')) FROM campaigns WHERE id=$CFT")" "ca"
+post /campanyes/$CES/elimina >/dev/null; post /campanyes/$CFT/elimina >/dev/null
 
 echo "== Destinataris, comprovacions i enviament"
 post /campanyes/$CID -d name="Butlletí de novembre" -d sender_id=1 -d "lists[]=$LIST" -d "segments[]=$SEG" >/dev/null

@@ -51,6 +51,9 @@ final class Sender
         }
         try {
             $doc = Document::decode($c['doc']);
+            // Rendered now, with the project's current footer and branding; kept for "view in browser".
+            $project = DB::one('SELECT * FROM projects WHERE id = ?', [$c['project_id']]);
+            DB::update('campaigns', ['html' => json_encode(Document::render($doc, $project), JSON_UNESCAPED_UNICODE)], 'id = ?', [$c['id']]);
             $contacts = Audience::contacts(Audience::clean($c['audience']), (int) $c['project_id']);
             $ins = DB::pdo()->prepare('INSERT IGNORE INTO messages (campaign_id, contact_id, email, language, status) VALUES (?, ?, ?, ?, ?)');
             foreach ($contacts as $ct) {
@@ -82,7 +85,7 @@ final class Sender
             return ['sent' => 0, 'failed' => 0, 'finished' => false];
         }
         $doc = Document::decode($c['doc']);
-        $html = json_decode((string) $c['html'], true) ?: Document::render($doc, $project);
+        $html = json_decode((string) DB::value('SELECT html FROM campaigns WHERE id = ?', [$c['id']]), true) ?: Document::render($doc, $project);
         $texts = [];
         foreach (array_keys($doc['langs']) as $l) {
             $texts[$l] = Document::text($doc, $l, $project);

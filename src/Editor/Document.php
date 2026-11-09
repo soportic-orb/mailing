@@ -18,7 +18,7 @@ final class Document
     public const LANGS = ['ca' => 'Català', 'es' => 'Castellano', 'en' => 'English', 'fr' => 'Français'];
 
     /** Footer text added to every email (with the unsubscribe link), per language. */
-    private const TAIL = [
+    public const TAIL = [
         'ca' => ['why' => 'Reps aquest correu perquè formes part dels contactes de %s.', 'unsub' => 'Dona\'t de baixa d\'aquesta llista', 'view' => 'Veure-ho al navegador'],
         'es' => ['why' => 'Recibes este correo porque formas parte de los contactos de %s.', 'unsub' => 'Darte de baja de esta lista', 'view' => 'Ver en el navegador'],
         'en' => ['why' => 'You are receiving this email because you are a contact of %s.', 'unsub' => 'Unsubscribe from this list', 'view' => 'View in your browser'],
@@ -36,6 +36,24 @@ final class Document
     }
 
     /** A new email: header, heading, text, button and footer. */
+    /**
+     * Sets the language the email is written in: if the document already has
+     * it, it becomes the primary; otherwise the primary version is relabelled
+     * (its content is kept: use the editor's translation to translate it).
+     */
+    public static function withLanguage(array $doc, string $lang): array
+    {
+        if (!isset(self::LANGS[$lang]) || $doc['primary'] === $lang) {
+            return $doc;
+        }
+        if (!isset($doc['langs'][$lang])) {
+            $doc['langs'][$lang] = $doc['langs'][$doc['primary']];
+            unset($doc['langs'][$doc['primary']]);
+        }
+        $doc['primary'] = $lang;
+        return self::clean($doc, $lang);
+    }
+
     public static function starter(): array
     {
         return MailDoc::make([
@@ -122,13 +140,35 @@ final class Document
         return $out;
     }
 
+    /**
+     * "Why you receive this email" line of the legal footer: the project's own
+     * text for that language (Projectes › Peu legal) or the default one.
+     * {projecte} is replaced by the project name.
+     */
+    public static function why(?array $project, string $lang): string
+    {
+        $name = (string) ($project['name'] ?? '');
+        $custom = $project ? self::customWhy((int) $project['id']) : [];
+        $text = trim((string) ($custom[$lang] ?? ''));
+        if ($text !== '') {
+            return str_replace('{projecte}', $name, $text);
+        }
+        return sprintf((self::TAIL[$lang] ?? self::TAIL['ca'])['why'], $name);
+    }
+
+    /** @return array<string, string> lang => custom text (may be empty) */
+    public static function customWhy(int $projectId): array
+    {
+        return json_decode(\Mailing\Core\Settings::get('footer_why_' . $projectId), true) ?: [];
+    }
+
     /** Plain-text version (multipart alternative). */
     public static function text(array $doc, string $lang, ?array $project): string
     {
         $l = $doc['langs'][$lang] ?? $doc['langs'][$doc['primary']];
         $r = new MailRenderer(static fn (string $src): ?string => null);
         $t = self::TAIL[$lang] ?? self::TAIL['ca'];
-        return $r->text($l['doc'], $l['subject']) . "\n--\n" . sprintf($t['why'], (string) ($project['name'] ?? ''))
+        return $r->text($l['doc'], $l['subject']) . "\n--\n" . self::why($project, $lang)
             . "\n" . $t['unsub'] . ': {{unsubscribe_url}}' . "\n";
     }
 
@@ -145,7 +185,7 @@ final class Document
         $a = 'color:#6b7280;text-decoration:underline;';
 
         return '<tr><td style="padding:18px ' . $s['padX'] . 'px 26px;background-color:' . $s['bodyBg'] . ';">'
-            . '<p style="' . $p . '">' . $h(sprintf($t['why'], $name)) . '</p>'
+            . '<p style="' . $p . '">' . $h(self::why($project, $lang)) . '</p>'
             . '<p style="' . $p . '"><a href="{{unsubscribe_url}}" target="_blank" style="' . $a . '">' . $h($t['unsub']) . '</a>'
             . '&nbsp;&nbsp;·&nbsp;&nbsp;<a href="{{view_url}}" target="_blank" style="' . $a . '">' . $h($t['view']) . '</a></p>'
             . ($addr !== '' ? '<p style="' . $p . '">' . $h($addr) . '</p>' : '')

@@ -21,7 +21,12 @@
     <div>
         <div class="card"><div class="card-head">Peu legal</div><div class="card-body">
             <label class="field"><span>Raó social</span><input class="input" name="company" maxlength="190" value="<?= e($p['company'] ?? '') ?>" placeholder="Soportic SL"></label>
-            <label class="field"><span>Adreça postal</span><input class="input" name="postal_address" maxlength="500" value="<?= e($p['postal_address'] ?? '') ?>" placeholder="Carrer…, 08000 Barcelona"><small>Surt al peu de cada correu amb l'enllaç de baixa (ho demanen la normativa i els filtres antispam).</small></label>
+            <span class="field-label">Text «per què reps aquest correu»</span>
+            <p class="small muted" style="margin:0 0 8px">Primera línia del peu legal de tots els correus, en cada idioma. En blanc = el text per defecte. <code>{projecte}</code> es substitueix pel nom del projecte.</p>
+            <?php $why = $p ? Document::customWhy((int) $p['id']) : []; foreach (Document::LANGS as $l => $lname): ?>
+                <label class="field" style="margin-bottom:8px"><span class="small muted" style="font-weight:600"><?= e($lname) ?></span><input class="input" name="footer_why[<?= e($l) ?>]" maxlength="500" value="<?= e($why[$l] ?? '') ?>" placeholder="<?= e(sprintf(Document::TAIL[$l]['why'], $p['name'] ?? '{projecte}')) ?>"></label>
+            <?php endforeach; ?>
+            <label class="field" style="margin-top:12px"><span>Adreça postal</span><input class="input" name="postal_address" maxlength="500" value="<?= e($p['postal_address'] ?? '') ?>" placeholder="Carrer…, 08000 Barcelona"><small>Surt al peu de cada correu amb l'enllaç de baixa (ho demanen la normativa i els filtres antispam).</small></label>
         </div></div>
         <div class="card"><div class="card-head">Compte de Mailjet propi (opcional)</div><div class="card-body">
             <p class="small muted" style="margin-top:0">Si el projecte envia amb un altre compte de Mailjet. En blanc = el de Configuració.</p>

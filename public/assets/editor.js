@@ -264,9 +264,20 @@
         mailEl.innerHTML = '';
         if (!doc.blocks.length) { mailEl.innerHTML = '<div class="me-empty">El correu és buit. Arrossega aquí blocs de l\'esquerra.</div>'; }
         doc.blocks.forEach(function (b) { mailEl.appendChild(blockEl(b)); });
+        mailEl.appendChild(tailEl());
         var drop = document.createElement('div'); drop.className = 'me-drop'; drop.id = 'me-drop'; drop.innerHTML = '<span>Deixa anar aquí</span>';
         mailEl.appendChild(drop);
         hideRt();
+    }
+    // Peu legal automàtic, en l'idioma del correu (el mateix que afegeix el servidor en enviar-lo).
+    function tailEl() {
+        var t = (CFG.tail || {})[lang] || (CFG.tail || {}).ca || { why: '%s', unsub: '', view: '' }, b = CFG.brand || {};
+        var el = document.createElement('div');
+        el.className = 'me-tail'; el.setAttribute('aria-label', 'Peu legal automàtic');
+        el.style.background = S().bodyBg; el.style.fontFamily = font(); el.style.padding = '22px ' + S().padX + 'px 26px';
+        el.innerHTML = '<p>' + esc((b.why && b.why[lang]) || t.why.replace('%s', b.name || '')) + '</p><p><a>' + esc(t.unsub) + '</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a>' + esc(t.view) + '</a></p>'
+            + (b.address ? '<p>' + esc(b.address) + '</p>' : '');
+        return el;
     }
     function renderBlock(id) {
         var old = mailEl.querySelector('.me-b[data-id="' + id + '"]'), b = block(id);
@@ -1221,6 +1232,17 @@
             m.addEventListener('click', function () { $('me-lang-menu').removeAttribute('open'); addLang(c, false); });
             list.appendChild(m);
         });
+        var sel = $('me-lang-select');
+        if (sel) {
+            sel.innerHTML = '';
+            Object.keys(CFG.langs).forEach(function (c) {
+                var o = document.createElement('option'); o.value = c; o.textContent = CFG.langs[c];
+                // Un idioma que ja té una altra versió no es pot triar: canvia de versió amb les pestanyes.
+                if (envelope.langs[c] && c !== lang) { o.disabled = true; o.textContent += ' (ja hi és)'; }
+                if (c === lang) o.selected = true;
+                sel.appendChild(o);
+            });
+        }
         var other = lang !== envelope.primary;
         $('me-lang-primary').hidden = !other;
         $('me-lang-remove').hidden = !other;
@@ -1256,6 +1278,18 @@
             toast('Traduït al ' + CFG.langs[c] + '. Revisa\'l i desa.');
         }).catch(function (e) { toast(e.message, true); });
     }
+    // Canvia l'idioma en què està escrita aquesta versió (no la tradueix: per traduir, «Tradueix al…»).
+    $('me-lang-select').addEventListener('change', function () {
+        var to = this.value, from = lang;
+        if (to === from || envelope.langs[to]) { renderLangs(); return; }
+        commit(true);
+        envelope.langs[to] = envelope.langs[from];
+        delete envelope.langs[from];
+        if (envelope.primary === from) envelope.primary = to;
+        load(to);
+        renderAll(); renderProps(); renderLangs(); commit(true);
+        toast('Ara aquest correu consta escrit en ' + CFG.langs[to] + '. El text no s\'ha traduït: per fer-ho, fes servir «Tradueix al…».');
+    });
     $('me-lang-retranslate').addEventListener('click', function () {
         $('me-lang-menu').removeAttribute('open');
         if (!confirm('Tornar a traduir el ' + CFG.langs[lang] + ' a partir del ' + CFG.langs[envelope.primary] + '? Es substituiran els textos d\'aquest idioma (es pot desfer).')) return;
