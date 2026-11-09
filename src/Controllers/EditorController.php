@@ -141,7 +141,8 @@ final class EditorController extends Controller
             abort(404);
         }
         $html = Document::render(Document::decode($ver['doc']), $this->project());
-        CampaignController::htmlResponse((string) reset($html));
+        $lang = str_input('lang', 5);
+        CampaignController::htmlResponse((string) ($html[$lang] ?? reset($html)));
     }
 
     public function restore(string $kind, string $id, string $v): never

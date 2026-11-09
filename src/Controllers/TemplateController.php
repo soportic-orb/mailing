@@ -130,6 +130,7 @@ final class TemplateController extends Controller
     {
         $t = $this->find((int) $id);
         $html = Document::render(Document::decode($t['doc']), $this->project());
-        CampaignController::htmlResponse((string) reset($html));
+        $lang = str_input('lang', 5);
+        CampaignController::htmlResponse((string) ($html[$lang] ?? reset($html)));
     }
 }
