@@ -97,10 +97,10 @@ body.embed .pf-card { box-shadow: none; padding: 4px 2px; width: 100%; }
 (function () {
     // The page that embeds the form can size its iframe: {mailingForm: true, height: …}
     var last = 0;
-    function send() { var h = document.documentElement.scrollHeight; if (h !== last && window.parent !== window) { last = h; window.parent.postMessage({ mailingForm: true, height: h }, '*'); } }
+    function send() { var el = document.querySelector('.pf') || document.body, h = Math.ceil(el.getBoundingClientRect().height) + 8; if (h !== last && window.parent !== window) { last = h; window.parent.postMessage({ mailingForm: true, height: h }, '*'); } }
     window.addEventListener('load', send);
     window.addEventListener('resize', send);
-    if (window.ResizeObserver) new ResizeObserver(send).observe(document.body);
+    if (window.ResizeObserver) new ResizeObserver(send).observe(document.querySelector('.pf') || document.body);
     send();
 })();
 </script><?php endif; ?>
