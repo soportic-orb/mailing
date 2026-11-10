@@ -79,10 +79,19 @@ final class ApiController
                 $counts['invalid']++;
                 continue;
             }
+            [$add, $remove, $consent] = self::listNames($item);
             $data = Sync::mapItem($pid, $item);
             $r = Contacts::upsert($pid, $data, $c['list_id'] ? (int) $c['list_id'] : null, 'sync:' . $c['id']);
             $counts[$r['result']]++;
-            $out[] = ['email' => normalize_email((string) ($item['email'] ?? '')), 'result' => $r['result']];
+            $row = ['email' => normalize_email((string) ($item['email'] ?? '')), 'result' => $r['result']];
+            $optIn = ($data['status'] ?? '') === 'subscribed';
+            if ($r['id'] && ($add || $remove)) {
+                $row += self::applyLists($c, (int) $r['id'], $add, $remove, $optIn);
+            }
+            if ($r['id'] && $optIn && $consent !== '') {
+                self::consent($c, (int) $r['id'], $consent);
+            }
+            $out[] = $row;
         }
         DB::update('connectors', ['last_run_at' => now_utc(), 'last_status' => 'ok', 'last_message' => 'API: ' . count($items) . ' contactes (' . $counts['created'] . ' nous, ' . $counts['updated'] . ' actualitzats)'], 'id = ?', [$c['id']]);
         json_response(['ok' => true] + $counts + ['results' => $out]);
@@ -103,13 +112,86 @@ final class ApiController
         $item = isset($body['contact']) && is_array($body['contact']) ? $body['contact'] : $body;
         unset($item['event']);
         $pid = (int) $c['project_id'];
-        $r = Contacts::upsert($pid, Sync::mapItem($pid, $item), $c['list_id'] ? (int) $c['list_id'] : null, 'sync:' . $c['id']);
+        [$add, $remove, $consent] = self::listNames($item);
+        $data = Sync::mapItem($pid, $item);
+        $r = Contacts::upsert($pid, $data, $c['list_id'] ? (int) $c['list_id'] : null, 'sync:' . $c['id']);
         if (!$r['id']) {
             json_response(['ok' => false, 'message' => 'Falta un «email» vàlid.'], 422);
+        }
+        $optIn = ($data['status'] ?? '') === 'subscribed';
+        if ($add || $remove) {
+            self::applyLists($c, (int) $r['id'], $add, $remove, $optIn);
+        }
+        if ($optIn && $consent !== '') {
+            self::consent($c, (int) $r['id'], $consent);
         }
         $n = Automations::fireEvent($pid, $event, (int) $r['id']);
         DB::update('connectors', ['last_run_at' => now_utc(), 'last_status' => 'ok', 'last_message' => 'API: esdeveniment «' . $event . '» · ' . $n . ' automatitzacions'], 'id = ?', [$c['id']]);
         json_response(['ok' => true, 'event' => $event, 'contact' => $r['result'], 'enrolled' => $n]);
+    }
+
+    /**
+     * "lists" / "remove_lists" of an item (names or ids), taken out of it so
+     * they do not become fields, plus the "consent" text (proof of an
+     * explicit opt-in). @return array{0: string[], 1: string[], 2: string}
+     */
+    private static function listNames(array &$item): array
+    {
+        $consent = is_scalar($item['consent'] ?? null) ? mb_substr(trim((string) $item['consent']), 0, 400) : '';
+        unset($item['consent']);
+        $get = static function (string $k) use (&$item): array {
+            $v = $item[$k] ?? [];
+            unset($item[$k]);
+            $v = is_array($v) ? $v : (is_scalar($v) && trim((string) $v) !== '' ? [$v] : []);
+            return array_slice(array_values(array_unique(array_filter(array_map(static fn ($x) => is_scalar($x) ? mb_substr(trim((string) $x), 0, 120) : '', $v), 'strlen'))), 0, 20);
+        };
+        return [$get('lists'), $get('remove_lists'), $consent];
+    }
+
+    /**
+     * Adds the contact to lists of the connector's project (created by name if
+     * missing) and takes it out of others. Someone who unsubscribed from a list
+     * is not subscribed again (unless this is an explicit opt-in: "status":
+     * "subscribed"), and that record is kept when "removing".
+     *
+     * @return array{lists?: string[], removed?: string[]}
+     */
+    private static function applyLists(array $c, int $contactId, array $add, array $remove, bool $optIn = false): array
+    {
+        $pid = (int) $c['project_id'];
+        $find = static function (string $ref, bool $create) use ($pid, $c): ?array {
+            $row = ctype_digit($ref)
+                ? DB::one('SELECT id, name FROM lists WHERE id = ? AND project_id = ?', [(int) $ref, $pid])
+                : DB::one('SELECT id, name FROM lists WHERE name = ? AND project_id = ? ORDER BY id LIMIT 1', [$ref, $pid]);
+            if (!$row && $create && !ctype_digit($ref)) {
+                $id = DB::insert('lists', ['project_id' => $pid, 'name' => $ref, 'description' => 'Creada per l\'API («' . $c['name'] . '»).', 'public' => 0, 'created_at' => now_utc()]);
+                $row = ['id' => $id, 'name' => $ref];
+            }
+            return $row;
+        };
+        $out = [];
+        foreach ($add as $ref) {
+            if ($l = $find($ref, true)) {
+                DB::exec('INSERT ' . ($optIn ? '' : 'IGNORE ') . 'INTO list_contacts (list_id, contact_id, status, source, added_at) VALUES (?, ?, ?, ?, ?)'
+                    . ($optIn ? " ON DUPLICATE KEY UPDATE status = 'subscribed'" : ''), [$l['id'], $contactId, 'subscribed', 'sync:' . $c['id'], now_utc()]);
+                $out['lists'][] = $l['name'];
+            }
+        }
+        foreach ($remove as $ref) {
+            if (($l = $find($ref, false)) && !in_array($l['name'], $out['lists'] ?? [], true)) {
+                DB::exec("DELETE FROM list_contacts WHERE list_id = ? AND contact_id = ? AND status = 'subscribed'", [$l['id'], $contactId]);
+                $out['removed'][] = $l['name'];
+            }
+        }
+        return $out;
+    }
+
+    /** Proof of consent (GDPR) sent by the platform: what was accepted, where and when. */
+    private static function consent(array $c, int $contactId, string $text): void
+    {
+        DB::update('contacts', ['consent_at' => now_utc()], 'id = ?', [$contactId]);
+        DB::insert('events', ['contact_id' => $contactId, 'type' => 'consent', 'created_at' => now_utc(),
+            'detail' => mb_substr('API «' . $c['name'] . '» · ' . $text, 0, 500)]);
     }
 
     private function find(array $c): ?array

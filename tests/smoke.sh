@@ -168,6 +168,19 @@ API=$(curl -s -c $J -b $J "$B/sincronitzacio" | grep -o 'mlg_[A-Za-z0-9]*' | hea
 expect "ping API" "$(curl -s -H "Authorization: Bearer $API" $B/api/v1/ping | grep -o '"ok":true')" '"ok":true'
 R=$(curl -s -X POST -H "Authorization: Bearer $API" -H "Content-Type: application/json" $B/api/v1/contacts -d '{"contacts":[{"email":"nou@api.cat","first_name":"Nou","language":"ca","external_id":"55","fields":{"pla":"Pro"}},{"email":"anna@exemple.cat","first_name":"Anna"}]}')
 echo "$R" | grep -q '"created":1' && ok "API: alta" || bad "API: $R"
+R=$(curl -s -X POST -H "Authorization: Bearer $API" -H "Content-Type: application/json" $B/api/v1/contacts -d '{"contacts":[{"email":"pau@sysrevai.cat","first_name":"Pau","lists":["SysRevAI · Compte de prova"],"fields":{"tipus_compte":"prova","fi_prova":"2026-12-10"}}]}')
+echo "$R" | grep -q '"lists":\["SysRevAI · Compte de prova"\]' && ok "API: llista per contacte (es crea pel nom)" || bad "API llistes: $R"
+expect "API: camp de data" "$(sql "SELECT type FROM fields WHERE project_id=1 AND \`key\`='fi_prova'")" "date"
+expect "API: el nom de la llista no es desa com a camp" "$(sql "SELECT COUNT(*) FROM fields WHERE project_id=1 AND \`key\` IN ('lists','remove_lists')")" "0"
+curl -s -X POST -H "Authorization: Bearer $API" -H "Content-Type: application/json" $B/api/v1/contacts -d '{"contacts":[{"email":"pau@sysrevai.cat","lists":["SysRevAI · Compte de pagament"],"remove_lists":["SysRevAI · Compte de prova"]}]}' >/dev/null
+expect "API: canvi de llista (prova → pagament)" "$(sql "SELECT GROUP_CONCAT(l.name) FROM list_contacts lc JOIN lists l ON l.id = lc.list_id JOIN contacts c ON c.id = lc.contact_id WHERE c.email='pau@sysrevai.cat' AND l.name LIKE 'SysRevAI%'")" "SysRevAI · Compte de pagament"
+sql "UPDATE list_contacts lc JOIN contacts c ON c.id = lc.contact_id SET lc.status='unsubscribed' WHERE c.email='pau@sysrevai.cat'"
+curl -s -X POST -H "Authorization: Bearer $API" -H "Content-Type: application/json" $B/api/v1/contacts -d '{"contacts":[{"email":"pau@sysrevai.cat","lists":["SysRevAI · Compte de pagament"]}]}' >/dev/null
+curl -s -X POST -H "Authorization: Bearer $API" -H "Content-Type: application/json" $B/api/v1/contacts -d '{"contacts":[{"email":"pau@sysrevai.cat","remove_lists":["SysRevAI · Compte de pagament"]}]}' >/dev/null
+expect "API: qui es va donar de baixa d'una llista no s'hi torna a apuntar" "$(sql "SELECT lc.status FROM list_contacts lc JOIN lists l ON l.id = lc.list_id JOIN contacts c ON c.id = lc.contact_id WHERE c.email='pau@sysrevai.cat' AND l.name='SysRevAI · Compte de pagament'")" "unsubscribed"
+R=$(curl -s -X POST -H "Authorization: Bearer $API" -H "Content-Type: application/json" $B/api/v1/contacts -d '{"contacts":[{"email":"pau@sysrevai.cat","status":"subscribed","consent":"Formulari de contacte de sysrevai.com","lists":["SysRevAI · Compte de pagament"]}]}')
+expect "API: una alta explícita torna a subscriure a la llista" "$(sql "SELECT lc.status FROM list_contacts lc JOIN lists l ON l.id = lc.list_id JOIN contacts c ON c.id = lc.contact_id WHERE c.email='pau@sysrevai.cat' AND l.name='SysRevAI · Compte de pagament'")" "subscribed"
+expect "API: prova de consentiment" "$(sql "SELECT COUNT(*) FROM events e JOIN contacts c ON c.id = e.contact_id WHERE c.email='pau@sysrevai.cat' AND e.type='consent' AND e.detail LIKE '%Formulari de contacte%'")" "1"
 expect "API no re-subscriu qui és de baixa" "$(sql "SELECT status FROM contacts WHERE email='anna@exemple.cat'")" "unsubscribed"
 expect "API sense clau" "$(curl -s -o /dev/null -w '%{http_code}' -X POST $B/api/v1/contacts -d '{}')" "401"
 $MYSQL sourceapp -e "CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY, mail VARCHAR(190), nom VARCHAR(60), ciutat VARCHAR(60), newsletter TINYINT); REPLACE INTO users VALUES (1,'s1@sql.cat','Sílvia','Girona',1),(2,'s2@sql.cat','Sergi','Lleida',1),(3,'s3@sql.cat','Sara','Reus',0);"
@@ -193,6 +206,7 @@ echo "== Formularis d'alta"
 post /formularis -d title="Butlletí Emergencing" -d "lists[]=$LIST" -d "fields[]=first_name" -d "required[]=first_name" -d language=ca -d double_optin=1 -d active=1 >/dev/null
 FS=$(sql "SELECT slug FROM forms WHERE title='Butlletí Emergencing'"); expect "adreça del formulari" "$FS" "butlleti-emergencing"
 PAGE=$(curl -s "$B/f/$FS"); echo "$PAGE" | grep -q 'name="website"' && ok "pàgina pública amb camp parany" || bad "pàgina pública"
+curl -s "$B/f/$FS?embed=1" | grep -q 'mailingForm' && ok "el formulari incrustat comunica la seva alçada" || bad "alçada incrustat"
 STAMP=$(echo "$PAGE" | grep -o 'name="_t" value="[^"]*"' | cut -d'"' -f4)
 curl -s -X POST "$B/f/$FS" --data-urlencode "_t=$STAMP" -d "email=rapid@bot.cat&first_name=Bot&consent=1" | grep -q 'No s&#039;ha pogut enviar' && ok "rebutja enviaments massa ràpids" || bad "temps mínim"
 sleep 2

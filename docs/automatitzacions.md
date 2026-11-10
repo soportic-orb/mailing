@@ -51,6 +51,17 @@ Resposta: `{"ok": true, "event": "registre", "contact": "created", "enrolled": 1
 Aquí `enrolled` és el nombre d'automatitzacions actives on ha entrat. És 0 si
 no n'hi ha cap amb aquest esdeveniment, o si ja hi havia entrat.
 
+Tant `POST /api/v1/events` com `POST /api/v1/contacts` accepten, per a cada
+contacte, `"lists": ["Compte de prova"]` i `"remove_lists": ["Compte de pagament"]`
+(noms o ids de llistes del projecte; les que no existeixen es creen). Així una
+plataforma pot moure els seus usuaris de llista quan canvien de tipus de compte.
+Qui s'havia donat de baixa d'una llista no s'hi torna a apuntar, i en treure'l
+se'n conserva la baixa, excepte si el contacte porta `"status": "subscribed"`
+(una alta explícita, com una casella marcada en un formulari): llavors s'hi torna
+a subscriure i, amb `"consent": "Formulari de contacte de …"`, en queda la prova
+de consentiment a la seva fitxa. Els camps nous amb un valor `AAAA-MM-DD` es creen de
+tipus data, de manera que serveixen per al disparador «Data d'un camp».
+
 El nom de l'esdeveniment pot tenir lletres, números i `_ . : -` (fins a 60
 caràcters). Les dades del contacte també es poden enviar dins de `"contact": {…}`.
 
