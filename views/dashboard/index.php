@@ -17,6 +17,7 @@ $max = max(1, max($growth));
     <div class="kpi"><span>Correus enviats (90 dies)</span><b><?= fmt_n($s['sent'] ?? 0) ?></b><small><?= fmt_n($s['bounced'] ?? 0) ?> rebots</small></div>
     <div class="kpi"><span>Taxa d'obertura</span><b><?= pct($s['opened'] ?? 0, $s['sent'] ?? 0) ?></b><small>Orientativa (Apple Mail obre sol)</small></div>
     <div class="kpi"><span>Taxa de clics</span><b><?= pct($s['clicked'] ?? 0, $s['sent'] ?? 0) ?></b><small><?= fmt_n($s['unsub'] ?? 0) ?> baixes</small></div>
+    <a class="kpi" href="/automatitzacions" style="text-decoration:none;color:inherit"><span>Automatitzacions</span><b><?= fmt_n((int) ($auto['today'] ?? 0)) ?></b><small>correus avui · <?= fmt_n((int) ($auto['week'] ?? 0)) ?> en 7 dies · <?= fmt_n($autoActive) ?> actives</small></a>
 </div>
 
 <div class="grid two">

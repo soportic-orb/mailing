@@ -106,6 +106,7 @@ final class ContactController extends Controller
             'inLists' => array_map('intval', DB::column("SELECT list_id FROM list_contacts WHERE contact_id = ? AND status = 'subscribed'", [$c['id']])),
             'messages' => DB::all('SELECT m.*, ca.name AS campaign FROM messages m JOIN campaigns ca ON ca.id = m.campaign_id WHERE m.contact_id = ? ORDER BY m.id DESC LIMIT 50', [$c['id']]),
             'events' => DB::all("SELECT e.*, ca.name AS campaign FROM events e LEFT JOIN campaigns ca ON ca.id = e.campaign_id WHERE e.contact_id = ? ORDER BY e.id DESC LIMIT 50", [$c['id']]),
+            'runs' => DB::all('SELECT r.*, a.name AS automation, a.flow FROM automation_runs r JOIN automations a ON a.id = r.automation_id WHERE r.contact_id = ? AND a.project_id = ? ORDER BY r.status = \'active\' DESC, r.id DESC LIMIT 30', [$c['id'], $this->pid()]),
         ]);
     }
 

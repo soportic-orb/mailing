@@ -45,8 +45,18 @@ $evLabels = ['sent' => 'Lliurat', 'open' => 'Obert', 'click' => 'Clic', 'bounce'
 
 <?php if ($c): ?>
 <div>
+    <?php if (!empty($runs)): ?>
     <div class="card" style="margin-bottom:16px">
-        <div class="card-head">Campanyes rebudes</div>
+        <div class="card-head">Automatitzacions</div>
+        <ul class="list"><?php foreach ($runs as $r): $fl = \Mailing\Services\Automations::cleanFlow($r['flow']); $st = array_column($fl['steps'], null, 'id')[$r['step_id']] ?? null; ?>
+            <li><div class="main"><a href="/automatitzacions/<?= (int) $r['automation_id'] ?>"><?= e($r['automation']) ?></a>
+                <div class="sub"><?= $r['status'] === 'active' ? 'Dins: ' . e($st ? \Mailing\Services\Automations::describeStep($st, $fl, (int) $c['project_id']) : '—') . ($r['waiting'] && $r['next_at'] ? ' (fins al ' . e(fmt_short($r['next_at'])) . ')' : '') : ($r['status'] === 'done' ? 'Ha acabat' : 'Ha sortit') . ($r['exit_reason'] ? ' · ' . e($r['exit_reason']) : '') ?> · entrada <?= e(fmt_short($r['entered_at'])) ?></div></div>
+                <?php if ($r['status'] === 'active' && Auth::canEdit()): ?><form method="post" action="/automatitzacions/<?= (int) $r['automation_id'] ?>/inscripcions/<?= (int) $r['id'] ?>/treu" data-confirm="Treure el contacte d'aquesta automatització?"><?= csrf_field() ?><button class="btn sm ghost" type="submit">Treu</button></form><?php endif; ?></li>
+        <?php endforeach; ?></ul>
+    </div>
+    <?php endif; ?>
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-head">Correus rebuts</div>
         <?php if ($messages): ?><ul class="list"><?php foreach ($messages as $m): ?>
             <li><div class="main"><a href="/campanyes/<?= (int) $m['campaign_id'] ?>/informe"><?= e($m['campaign']) ?></a>
                 <div class="sub"><?= e($m['sent_at'] ? fmt_short($m['sent_at']) : ($m['status'] === 'queued' ? 'Pendent' : $m['status'])) ?>

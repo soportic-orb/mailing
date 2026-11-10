@@ -18,7 +18,7 @@ final class CalendarController extends Controller
         $end = $start->modify('+42 days');
         $utc = new \DateTimeZone('UTC');
         $rows = DB::all("SELECT id, name, subject, status, scheduled_at, started_at, finished_at, recipients FROM campaigns
-            WHERE project_id = ? AND status <> 'cancelled' AND COALESCE(finished_at, started_at, scheduled_at) >= ? AND COALESCE(finished_at, started_at, scheduled_at) < ?",
+            WHERE project_id = ? AND status NOT IN ('cancelled', 'auto') AND COALESCE(finished_at, started_at, scheduled_at) >= ? AND COALESCE(finished_at, started_at, scheduled_at) < ?",
             [$this->pid(), $start->setTimezone($utc)->format('Y-m-d H:i:s'), $end->setTimezone($utc)->format('Y-m-d H:i:s')]);
         $byDay = [];
         foreach ($rows as $r) {

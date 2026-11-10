@@ -43,6 +43,10 @@ final class DashboardController extends Controller
                     (SELECT COUNT(*) FROM messages m WHERE m.campaign_id = c.id AND m.clicked_at IS NOT NULL) AS n_click
                 FROM campaigns c WHERE c.project_id = ? AND c.status = 'sent' ORDER BY c.finished_at DESC LIMIT 6", [$pid]),
             'growth' => Stats::growth($pid),
+            'auto' => DB::one("SELECT COUNT(*) AS week, SUM(m.sent_at >= ?) AS today FROM messages m JOIN campaigns c ON c.id = m.campaign_id
+                WHERE c.project_id = ? AND c.status = 'auto' AND m.status = 'sent' AND m.sent_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY)",
+                [(new \DateTimeImmutable('today', app_tz()))->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'), $pid]) ?? [],
+            'autoActive' => (int) DB::value("SELECT COUNT(*) FROM automations WHERE project_id = ? AND status = 'active'", [$pid]),
         ]);
     }
 

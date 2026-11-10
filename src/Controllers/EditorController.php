@@ -41,7 +41,7 @@ final class EditorController extends Controller
     public function edit(string $kind, string $id): never
     {
         [$type, $row] = $this->owner($kind, (int) $id);
-        if ($type === 'campaign' && !Campaigns::editable($row)) {
+        if ($type === 'campaign' && !Campaigns::editable($row) && $row['status'] !== 'auto') {
             flash('err', 'Aquesta campanya ja s\'ha enviat (o s\'està enviant): el contingut no es pot canviar. Duplica-la per fer-ne una de nova.');
             redirect('/campanyes/' . $row['id']);
         }
@@ -95,7 +95,7 @@ final class EditorController extends Controller
                     'aiText' => '/editor/ia/text',
                     'aiImage' => '/editor/ia/imatge',
                     'translate' => '/editor/tradueix',
-                    'back' => $type === 'campaign' ? $base : '/plantilles',
+                    'back' => $type === 'campaign' ? ($row['status'] === 'auto' ? '/automatitzacions/' . (int) $row['automation_id'] : $base) : '/plantilles',
                 ],
             ],
         ]);
@@ -104,7 +104,7 @@ final class EditorController extends Controller
     public function save(string $kind, string $id): never
     {
         [$type, $row] = $this->owner($kind, (int) $id);
-        if ($type === 'campaign' && !Campaigns::editable($row)) {
+        if ($type === 'campaign' && !Campaigns::editable($row) && $row['status'] !== 'auto') {
             json_response(['ok' => false, 'message' => 'Aquesta campanya ja s\'està enviant o s\'ha enviat: no es pot canviar.'], 422);
         }
         if ($type === 'template') {
@@ -149,7 +149,7 @@ final class EditorController extends Controller
     {
         [$type, $row] = $this->owner($kind, (int) $id);
         $ver = DB::one('SELECT doc FROM doc_versions WHERE owner_type = ? AND owner_id = ? AND version = ?', [$type, $row['id'], (int) $v]);
-        if (!$ver || ($type === 'campaign' && !Campaigns::editable($row))) {
+        if (!$ver || ($type === 'campaign' && !Campaigns::editable($row) && $row['status'] !== 'auto')) {
             $this->fail('No es pot recuperar aquesta versió.');
         }
         Campaigns::saveDoc($type, $row, json_decode($ver['doc'], true), 0, true, $this->project());
