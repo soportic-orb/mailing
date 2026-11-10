@@ -240,6 +240,95 @@ curl -s -c $J -b $J "$B/plantilles/$TB/previsualitza?lang=es" | grep -q 'Título
 curl -s -c $J -b $J "$B/plantilles/$TB/previsualitza" | grep -q 'Títol en català' && ok "sense idioma: el principal" || bad "idioma principal"
 curl -s -c $J -b $J "$B/plantilles" | grep -q "previsualitza?lang=es" && ok "enllaç per idioma al llistat" || bad "enllaços per idioma"
 
+echo "== Automatitzacions"
+subj() { sql "UPDATE campaigns SET doc = JSON_SET(doc, CONCAT('\$.langs.', JSON_UNQUOTE(JSON_EXTRACT(doc,'\$.primary')), '.subject'), '$2') WHERE id=$1"; }
+flowset() { $MYSQL --default-character-set=utf8mb4 -N -r $DB -e "SELECT flow FROM automations WHERE id=$1" | php -r '$f = json_decode(stream_get_contents(STDIN), true); foreach ($f["steps"] as &$s) { if ($s["type"] === "trigger") { $s["config"] = array_merge($s["config"], json_decode($argv[1], true)); } } echo json_encode(["flow" => $f]);' "$2"; }
+post /llistes -d name=Nous >/dev/null
+NL=$(sql "SELECT id FROM lists WHERE name='Nous' AND project_id=1")
+post /automatitzacions -d name=Benvinguda -d preset=welcome >/dev/null
+AID=$(sql "SELECT MAX(id) FROM automations")
+expect "flux de benvinguda: correus creats" "$(sql "SELECT COUNT(*) FROM campaigns WHERE automation_id=$AID AND status='auto'")" "3"
+curl -s -c $J -b $J $B/campanyes | grep -q 'Benvinguda · ' && bad "els correus del flux surten a Campanyes" || ok "els correus del flux no surten a Campanyes"
+post /automatitzacions/$AID/activa >/dev/null
+expect "no s'activa si falta configuració" "$(sql "SELECT status FROM automations WHERE id=$AID")" "draft"
+r=$(ajax /automatitzacions/$AID/flux -H "Content-Type: application/json" -d "$(flowset $AID "{\"list_id\":$NL}")"); echo "$r" | grep -q '"ok":true' && ok "desa el flux (JSON de l'editor)" || bad "desa el flux: $r"
+expect "disparador: llista" "$(sql "SELECT JSON_UNQUOTE(JSON_EXTRACT(trigger_config,'$.list_id')) FROM automations WHERE id=$AID")" "$NL"
+expect "els correus es mantenen en desar" "$(sql "SELECT COUNT(*) FROM campaigns WHERE automation_id=$AID")" "3"
+C1=$(sql "SELECT id FROM campaigns WHERE automation_id=$AID AND name LIKE '% · Benvinguda'")
+C2=$(sql "SELECT id FROM campaigns WHERE automation_id=$AID AND name LIKE '% · Coneix-nos millor'")
+C3=$(sql "SELECT id FROM campaigns WHERE automation_id=$AID AND name LIKE '% · Recordatori'")
+subj $C1 'Benvinguda per a {{nom}}'; subj $C2 'Coneix-nos millor'; subj $C3 'Recordatori'
+post /automatitzacions/$AID -d name=Benvinguda -d sender_id=1 >/dev/null
+post /automatitzacions/$AID/activa >/dev/null
+expect "automatització activa" "$(sql "SELECT status FROM automations WHERE id=$AID")" "active"
+for P in nuria oriol pau; do post /contactes -d email=$P@exemple.cat -d first_name=${P^} -d consent=1 -d "lists[]=$NL" >/dev/null; done
+php bin/worker.php >/dev/null
+expect "alta a la llista → inscrits" "$(sql "SELECT COUNT(*) FROM automation_runs WHERE automation_id=$AID")" "3"
+expect "correu immediat enviat" "$(sql "SELECT COUNT(*) FROM messages WHERE campaign_id=$C1 AND status='sent' AND run_id > 0")" "3"
+grep 'POST /v3.1/send' storage/logs/mock.log | grep -q 'Benvinguda per a Oriol' && ok "assumpte personalitzat" || bad "assumpte del correu"
+grep 'POST /v3.1/send' storage/logs/mock.log | tail -1 | grep -q "mlg-1-$C1" && ok "seguiment com una campanya" || bad "CustomCampaign"
+expect "esperen al pas d'espera" "$(sql "SELECT COUNT(*) FROM automation_runs WHERE automation_id=$AID AND waiting=1 AND step_id='delay-3d'")" "3"
+MN=$(sql "SELECT id FROM messages WHERE campaign_id=$C1 AND email='nuria@exemple.cat'")
+curl -s -X POST "$B/webhook/mailjet?key=$WK" -H "Content-Type: application/json" -d "[{\"event\":\"open\",\"CustomID\":\"m$MN\",\"time\":$(date +%s)}]" >/dev/null
+sql "UPDATE contacts SET status='unsubscribed' WHERE email='pau@exemple.cat'"
+sql "UPDATE automation_runs SET next_at = UTC_TIMESTAMP() - INTERVAL 1 MINUTE WHERE automation_id=$AID AND status='active'"
+php bin/worker.php >/dev/null
+expect "ha obert → branca Sí" "$(sql "SELECT GROUP_CONCAT(email) FROM messages WHERE campaign_id=$C2")" "nuria@exemple.cat"
+expect "no ha obert → branca No" "$(sql "SELECT GROUP_CONCAT(email) FROM messages WHERE campaign_id=$C3")" "oriol@exemple.cat"
+expect "baixa → surt del flux" "$(sql "SELECT r.status FROM automation_runs r JOIN contacts c ON c.id = r.contact_id WHERE c.email='pau@exemple.cat'")" "exited"
+expect "els altres acaben" "$(sql "SELECT COUNT(*) FROM automation_runs WHERE automation_id=$AID AND status='done'")" "2"
+r=$(ajax /automatitzacions/$AID/prova -H "Content-Type: application/json" -d '{"email":"nuria@exemple.cat"}'); echo "$r" | grep -q '"result":"Sí"' && ok "prova amb un contacte" || bad "prova: $r"
+curl -s -c $J -b $J $B/automatitzacions/$AID | grep -q 'FLOW_CFG' && ok "editor del flux" || bad "editor del flux"
+curl -s -c $J -b $J "$B/automatitzacions/$AID?vista=activitat" | grep -q 'oriol@exemple.cat' && ok "activitat" || bad "activitat"
+curl -s -c $J -b $J $B/automatitzacions | grep -q 'Benvinguda' && ok "llistat d'automatitzacions" || bad "llistat"
+CN=$(sql "SELECT id FROM contacts WHERE email='nuria@exemple.cat'")
+curl -s -c $J -b $J $B/contactes/$CN | grep -q "/automatitzacions/$AID" && ok "fitxa del contacte" || bad "fitxa del contacte"
+curl -s -c $J -b $J $B/campanyes/$C1/editor | grep -q "automatitzacions\\\\/$AID\|automatitzacions/$AID" && ok "l'editor del correu torna a l'automatització" || bad "editor del correu"
+curl -s -c $J -b $J $B/campanyes/$C1/informe | grep -q "correu d'una automatització" && ok "informe del correu" || bad "informe"
+post /automatitzacions/$AID/inscriu -d "lists[]=$NL" >/dev/null
+expect "inscripció manual: qui ja hi ha estat no hi torna" "$(sql "SELECT COUNT(*) FROM automation_runs WHERE automation_id=$AID")" "3"
+
+post /automatitzacions -d name=Registre -d trigger=event >/dev/null
+AE=$(sql "SELECT MAX(id) FROM automations")
+FL='{"flow":{"steps":[{"id":"trigger-start","type":"trigger","config":{"kind":"event","event":"registre"}},{"id":"email-hola","type":"email","config":{"name":"Hola"}},{"id":"action-tag","type":"action","config":{"kind":"set_field","field":"camp:origen","value":"app"}}],"edges":[{"from":"trigger-start","to":"email-hola"},{"from":"email-hola","to":"action-tag"}]}}'
+ajax /automatitzacions/$AE/flux -H "Content-Type: application/json" -d "$FL" >/dev/null
+CE=$(sql "SELECT id FROM campaigns WHERE automation_id=$AE")
+subj $CE 'Benvinguda a l app'
+post /automatitzacions/$AE -d name=Registre -d sender_id=1 >/dev/null
+post /automatitzacions/$AE/activa >/dev/null
+R=$(curl -s -X POST -H "Authorization: Bearer $API" -H "Content-Type: application/json" $B/api/v1/events -d '{"event":"registre","email":"rita@app.cat","first_name":"Rita"}')
+echo "$R" | grep -q '"enrolled":1' && ok "esdeveniment per API → inscrita" || bad "esdeveniment: $R"
+php bin/worker.php >/dev/null
+expect "correu de l'esdeveniment" "$(sql "SELECT status FROM messages WHERE campaign_id=$CE AND email='rita@app.cat'")" "sent"
+expect "acció: posa un camp" "$(sql "SELECT JSON_UNQUOTE(JSON_EXTRACT(fields,'$.origen')) FROM contacts WHERE email='rita@app.cat'")" "app"
+R=$(curl -s -X POST -H "Authorization: Bearer $API" -H "Content-Type: application/json" $B/api/v1/events -d '{"event":"registre","email":"rita@app.cat"}')
+echo "$R" | grep -q '"enrolled":0' && ok "una sola vegada per contacte" || bad "doble inscripció: $R"
+FL='{"flow":{"steps":[{"id":"trigger-start","type":"trigger","config":{"kind":"event","event":"registre"}},{"id":"email-hola","type":"email","config":{"name":"Hola","campaign_id":'$CE'}},{"id":"email-nou","type":"email","config":{"name":"Nou"}},{"id":"action-tag","type":"action","config":{"kind":"set_field","field":"camp:origen","value":"app"}}],"edges":[{"from":"trigger-start","to":"email-hola"},{"from":"email-hola","to":"email-nou"},{"from":"email-nou","to":"action-tag"}]}}'
+r=$(ajax /automatitzacions/$AE/flux -H "Content-Type: application/json" -d "$FL"); echo "$r" | grep -q 'passos incomplets' && ok "avís en desar un pas incomplet amb el flux actiu" || bad "avís incomplet: $r"
+curl -s -X POST -H "Authorization: Bearer $API" -H "Content-Type: application/json" $B/api/v1/events -d '{"event":"registre","email":"tomas@app.cat","first_name":"Tomàs"}' >/dev/null
+php bin/worker.php >/dev/null
+expect "correu nou sense assumpte: el contacte s'hi espera" "$(sql "SELECT CONCAT(r.step_id, '/', (SELECT COUNT(*) FROM automation_log l WHERE l.run_id = r.id AND l.type = 'hold')) FROM automation_runs r JOIN contacts c ON c.id = r.contact_id WHERE c.email='tomas@app.cat'")" "email-nou/1"
+expect "i no s'envia res buit" "$(sql "SELECT COUNT(*) FROM messages m JOIN campaigns c ON c.id = m.campaign_id WHERE c.automation_id=$AE AND m.email='tomas@app.cat'")" "1"
+expect "esdeveniment sense nom" "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $API" -H "Content-Type: application/json" $B/api/v1/events -d '{"email":"rita@app.cat"}')" "422"
+
+post /automatitzacions -d name=Aniversari -d preset=birthday >/dev/null
+AD=$(sql "SELECT MAX(id) FROM automations")
+sql "UPDATE contacts SET fields = JSON_SET(COALESCE(fields, '{}'), '\$.naixement', '1990-$(TZ=Europe/Madrid date +%m-%d)') WHERE email='oriol@exemple.cat'"
+ajax /automatitzacions/$AD/flux -H "Content-Type: application/json" -d "$(flowset $AD '{"field":"camp:naixement","at":"00:00"}')" >/dev/null
+subj $(sql "SELECT id FROM campaigns WHERE automation_id=$AD") 'Per molts anys, {{nom}}!'
+post /automatitzacions/$AD -d name=Aniversari -d sender_id=1 >/dev/null
+post /automatitzacions/$AD/activa >/dev/null
+php bin/worker.php >/dev/null
+expect "data: inscrit el dia de l'aniversari" "$(sql "SELECT cycle FROM automation_runs WHERE automation_id=$AD")" "$(TZ=Europe/Madrid date +%Y)"
+grep 'POST /v3.1/send' storage/logs/mock.log | grep -q 'Per molts anys, Oriol!' && ok "correu d'aniversari" || bad "aniversari"
+
+post /automatitzacions/$AE/elimina >/dev/null
+expect "no s'elimina si és activa" "$(sql "SELECT COUNT(*) FROM automations WHERE id=$AE")" "1"
+post /automatitzacions/$AE/pausa >/dev/null
+expect "pausada" "$(sql "SELECT status FROM automations WHERE id=$AE")" "paused"
+post /automatitzacions/$AE/elimina >/dev/null
+expect "eliminada amb els seus correus" "$(sql "SELECT COUNT(*) FROM automations WHERE id=$AE")/$(sql "SELECT COUNT(*) FROM campaigns WHERE automation_id=$AE")" "0/0"
+
 echo "== Actualització OTA i còpies"
 post /actualitzacio/copia >/dev/null; ls storage/backups/*.sql.gz >/dev/null 2>&1 && ok "còpia de seguretat" || bad "còpia"
 

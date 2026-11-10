@@ -66,6 +66,7 @@ $accent = $project['color'] ?? '#ac1966';
     <nav class="tabs" aria-label="Seccions">
         <a href="/"<?= $active('/') ?>>Inici</a>
         <a href="/campanyes"<?= $active('/campanyes') ?>>Campanyes</a>
+        <a href="/automatitzacions"<?= $active('/automatitzacions') ?>>Automatitzacions</a>
         <a href="/calendari"<?= $active('/calendari') ?>>Calendari</a>
         <a href="/contactes"<?= $active('/contactes') ?>>Contactes</a>
         <a href="/llistes"<?= $active('/llistes') ?>>Llistes</a>

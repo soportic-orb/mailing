@@ -1,0 +1,68 @@
+/* Editor visual del flux de les automatitzacions */
+.flow-app { display: grid; grid-template-columns: minmax(0, 1fr) 340px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; min-height: 560px; }
+.fl-main { display: flex; flex-direction: column; min-width: 0; }
+.fl-toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.fl-sp { flex: 1; }
+.fl-dirty { color: var(--warn); font-weight: 600; }
+.fl-canvas { position: relative; flex: 1; height: calc(100vh - 330px); min-height: 520px; overflow: hidden; cursor: grab; touch-action: none;
+    background-color: #f8f9fb; background-image: radial-gradient(#dfe3e8 1px, transparent 1px); background-size: 20px 20px; }
+.fl-canvas.grab { cursor: grabbing; }
+.fl-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.fl-edges { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.fl-edges path { fill: none; stroke: #c3cad4; stroke-width: 2; }
+.fl-edges path.dash { stroke-dasharray: 5 5; }
+.fl-edges path.on { stroke: var(--accent); stroke-width: 3; }
+
+.fl-node { position: absolute; width: 264px; height: 76px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #fff;
+    border: 2px solid #e3e7ec; border-radius: 14px; cursor: pointer; box-shadow: 0 1px 2px rgba(16, 24, 40, .05); transition: box-shadow .15s, border-color .15s; }
+.fl-node:hover { border-color: color-mix(in srgb, var(--c) 45%, #e3e7ec); }
+.fl-node:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 30%, transparent); }
+.fl-node.sel { border-color: var(--c); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 18%, transparent); }
+.fl-node.on-path { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.fl-ic { flex: none; width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 12%, #fff); }
+.fl-ic.sm { width: 30px; height: 30px; border-radius: 8px; }
+.fl-tx { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.fl-tx b { font-size: 13.5px; color: var(--text); }
+.fl-tx span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fl-tx em { font-style: normal; font-size: 11.5px; font-weight: 700; color: var(--c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fl-del { position: absolute; top: 4px; right: 6px; border: 0; background: none; color: #b8bec8; font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 4px; border-radius: 6px; opacity: 0; }
+.fl-node:hover .fl-del, .fl-node.sel .fl-del { opacity: 1; }
+.fl-del:hover { color: var(--danger); background: #fdecea; }
+
+.fl-add { position: absolute; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; border: 1.5px dashed #9aa3af; background: #fff; color: #6b7280;
+    font-size: 16px; line-height: 1; display: grid; place-items: center; cursor: pointer; padding: 0; box-shadow: 0 1px 2px rgba(16, 24, 40, .06); }
+.fl-add.big { width: 32px; height: 32px; font-size: 19px; border-width: 2px; }
+.fl-add:hover, .fl-add:focus-visible { border-color: var(--accent); color: var(--accent); border-style: solid; outline: none; }
+.fl-branch { position: absolute; transform: translate(-50%, -50%); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; pointer-events: none; }
+.fl-branch.yes { background: #dcfce7; color: #15803d; }
+.fl-branch.no { background: #fee2e2; color: #b91c1c; }
+.fl-end { position: absolute; transform: translateX(-50%); font-size: 11px; color: var(--muted); }
+
+.fl-menu { position: fixed; z-index: 50; background: #fff; border-radius: 12px; padding: 6px; min-width: 220px; box-shadow: 0 12px 32px rgba(16, 24, 40, .18), 0 0 0 1px rgba(16, 24, 40, .06); }
+.fl-menu button { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; padding: 7px 8px; border-radius: 8px; cursor: pointer; text-align: left; font: inherit; }
+.fl-menu button:hover, .fl-menu button:focus-visible { background: #f4f5f7; outline: none; }
+.fl-menu b { display: block; font-size: 13px; }
+.fl-menu small { display: block; font-size: 11.5px; color: var(--muted); }
+
+.fl-panel { border-left: 1px solid var(--border); background: #fff; overflow-y: auto; max-height: calc(100vh - 280px); min-height: 560px; }
+.fl-ph { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: #fff; z-index: 1; }
+.fl-ph b { flex: 1; font-size: 15px; }
+.fl-pb { padding: 14px; }
+.fl-pb .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fl-pb code { font-size: 11.5px; background: #f4f5f7; padding: 1px 4px; border-radius: 4px; word-break: break-all; }
+.fl-pb .btns { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
+.fl-rm { margin-top: 14px; }
+.fl-subjects p { margin: 0 0 6px; font-size: 13px; }
+.fl-intro { font-size: 13px; line-height: 1.5; background: #f8f9fb; border-radius: 10px; padding: 10px 12px; margin-top: 0; }
+.fl-intro b { display: block; margin-bottom: 4px; }
+.fl-simrow { display: flex; gap: 6px; }
+.fl-simrow .input { flex: 1; min-width: 0; }
+.fl-sim ol { padding-left: 20px; font-size: 13px; line-height: 1.6; }
+.fl-sim .pill { margin-left: 4px; }
+
+
+@media (max-width: 960px) {
+    .flow-app { grid-template-columns: minmax(0, 1fr); }
+    .fl-canvas { height: 62vh; min-height: 380px; }
+    .fl-panel { border-left: 0; border-top: 1px solid var(--border); max-height: none; min-height: 0; }
+}

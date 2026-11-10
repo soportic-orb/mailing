@@ -39,6 +39,17 @@ final class Sender
             $out['failed'] += $r['failed'];
             $out['finished'] += $r['finished'] ? 1 : 0;
         }
+        // Emails of active automations with someone waiting for them.
+        foreach (DB::all("SELECT c.* FROM campaigns c JOIN automations a ON a.id = c.automation_id
+            WHERE c.status = 'auto' AND a.status = 'active' AND EXISTS (SELECT 1 FROM messages m WHERE m.campaign_id = c.id AND m.status = 'queued') ORDER BY c.id") as $c) {
+            if ($budget <= 0) {
+                break;
+            }
+            $r = self::process($c, $budget);
+            $budget -= $r['sent'] + $r['failed'];
+            $out['sent'] += $r['sent'];
+            $out['failed'] += $r['failed'];
+        }
         return $out;
     }
 
@@ -82,12 +93,21 @@ final class Sender
         $sender = $c['sender_id'] ? DB::one('SELECT * FROM senders WHERE id = ?', [$c['sender_id']]) : null;
         $client = Client::forProject($project);
         $sent = $failed = 0;
+        // Automation emails stay "auto": their messages wait until the problem is solved.
+        $auto = $c['status'] === 'auto';
         if (!$project || !$sender || !$client->configured()) {
-            DB::update('campaigns', ['status' => 'paused', 'error' => !$sender ? 'La campanya no té remitent.' : 'Mailjet no està configurat.'], 'id = ?', [$c['id']]);
+            $error = !$sender ? 'La campanya no té remitent.' : 'Mailjet no està configurat.';
+            DB::update('campaigns', $auto ? ['error' => $error] : ['status' => 'paused', 'error' => $error], 'id = ?', [$c['id']]);
             return ['sent' => 0, 'failed' => 0, 'finished' => false];
         }
         $doc = Document::decode($c['doc']);
-        $html = json_decode((string) DB::value('SELECT html FROM campaigns WHERE id = ?', [$c['id']]), true) ?: Document::render($doc, $project);
+        if ($auto) {
+            // Always the current version (kept for "view in browser").
+            $html = Document::render($doc, $project);
+            DB::update('campaigns', ['html' => json_encode($html, JSON_UNESCAPED_UNICODE), 'error' => null], 'id = ?', [$c['id']]);
+        } else {
+            $html = json_decode((string) DB::value('SELECT html FROM campaigns WHERE id = ?', [$c['id']]), true) ?: Document::render($doc, $project);
+        }
         $texts = [];
         foreach (array_keys($doc['langs']) as $l) {
             $texts[$l] = Document::text($doc, $l, $project);
@@ -126,7 +146,10 @@ final class Sender
                 // Whole batch refused (network, credentials): retry later, pause after 3 attempts.
                 DB::exec('UPDATE messages SET attempts = attempts + 1, error = ? WHERE id IN (' . DB::in($ids) . ')', array_merge([mb_substr($e->getMessage(), 0, 500)], $ids));
                 $max = (int) DB::value('SELECT MAX(attempts) FROM messages WHERE id IN (' . DB::in($ids) . ')', $ids);
-                if ($max >= 3) {
+                if ($max >= 3 && $auto) {
+                    DB::exec("UPDATE messages SET status = 'failed' WHERE attempts >= 3 AND status = 'queued' AND id IN (" . DB::in($ids) . ')', $ids);
+                    DB::update('campaigns', ['error' => 'Enviament fallit: ' . mb_substr($e->getMessage(), 0, 900)], 'id = ?', [$c['id']]);
+                } elseif ($max >= 3) {
                     DB::update('campaigns', ['status' => 'paused', 'error' => 'Enviament aturat: ' . mb_substr($e->getMessage(), 0, 900)], 'id = ?', [$c['id']]);
                 }
                 logger('Campaign ' . $c['id'] . ' batch: ' . $e->getMessage(), [], 'send');
@@ -144,6 +167,9 @@ final class Sender
             $limit -= count($payloads);
         }
 
+        if ($auto) {
+            return ['sent' => $sent, 'failed' => $failed, 'finished' => false];
+        }
         $left = (int) DB::value("SELECT COUNT(*) FROM messages WHERE campaign_id = ? AND status = 'queued'", [$c['id']]);
         if ($left === 0) {
             $ok = (int) DB::value("SELECT COUNT(*) FROM messages WHERE campaign_id = ? AND status = 'sent'", [$c['id']]);

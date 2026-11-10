@@ -25,6 +25,7 @@ final class Cron
             if (Updater::inMaintenance()) {
                 return ['skipped' => 'maintenance'];
             }
+            $out['automations'] = Automations::tick();
             $out['send'] = Sender::tick();
             $out['sync'] = Sync::runDue();
             self::cleanup();

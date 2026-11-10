@@ -125,8 +125,8 @@ final class SenderController extends Controller
     public function destroy(string $id): never
     {
         $s = $this->own('senders', (int) $id);
-        if (DB::value("SELECT COUNT(*) FROM campaigns WHERE sender_id = ? AND status IN ('scheduled', 'sending', 'paused')", [$s['id']])) {
-            $this->fail('Hi ha campanyes programades o en curs amb aquest remitent.');
+        if (DB::value("SELECT COUNT(*) FROM campaigns WHERE sender_id = ? AND status IN ('scheduled', 'sending', 'paused')", [$s['id']]) || DB::value("SELECT COUNT(*) FROM automations WHERE sender_id = ? AND status = 'active'", [$s['id']])) {
+            $this->fail('Hi ha campanyes programades o en curs, o automatitzacions actives, amb aquest remitent.');
         }
         DB::exec('UPDATE campaigns SET sender_id = NULL WHERE sender_id = ? AND status = \'draft\'', [$s['id']]);
         DB::exec('DELETE FROM senders WHERE id = ?', [$s['id']]);

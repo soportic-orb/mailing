@@ -15,8 +15,8 @@ $filters = ['' => 'Tots', 'opened' => 'Han obert', 'notopened' => 'No han obert'
 ?>
 <a class="crumb" href="/campanyes/<?= (int) $c['id'] ?>">← <?= e($c['name']) ?></a>
 <div class="page-head">
-    <div><h1 class="page-title">Informe <span class="st <?= e($c['status']) ?>" style="vertical-align:4px"><?= e(Campaigns::STATUSES[$c['status']]) ?></span></h1>
-        <p class="page-sub"><b><?= e($c['subject']) ?></b> · <?= $c['started_at'] ? 'enviada el ' . e(fmt_dt($c['started_at'])) : 'encara no enviada' ?><?= $sender ? ' · des de ' . e($sender['email']) : '' ?></p></div>
+    <div><h1 class="page-title">Informe <span class="st <?= e($c['status']) ?>" style="vertical-align:4px"><?= e(Campaigns::STATUSES[$c['status']] ?? 'Automatització') ?></span></h1>
+        <p class="page-sub"><b><?= e($c['subject']) ?></b> · <?= $c['status'] === 'auto' ? 'correu d\'una automatització' : ($c['started_at'] ? 'enviada el ' . e(fmt_dt($c['started_at'])) : 'encara no enviada') ?><?= $sender ? ' · des de ' . e($sender['email']) : '' ?></p></div>
     <div class="btns"><a class="btn secondary" href="/campanyes/<?= (int) $c['id'] ?>/previsualitza" target="_blank">Mira el correu</a><a class="btn secondary" href="/campanyes/<?= (int) $c['id'] ?>/destinataris.csv">Exporta CSV</a></div>
 </div>
 <div class="kpis" style="margin-bottom:16px">

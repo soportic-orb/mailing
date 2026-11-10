@@ -20,7 +20,7 @@ final class CampaignController extends Controller
         $pid = $this->pid();
         $status = str_input('estat', 20);
         $q = str_input('q', 100);
-        $where = 'c.project_id = ?';
+        $where = "c.project_id = ? AND c.status <> 'auto'";
         $params = [$pid];
         if (isset(Campaigns::STATUSES[$status])) {
             $where .= ' AND c.status = ?';
@@ -35,7 +35,7 @@ final class CampaignController extends Controller
                 (SELECT COUNT(*) FROM messages m WHERE m.campaign_id = c.id AND m.opened_at IS NOT NULL) AS n_open,
                 (SELECT COUNT(*) FROM messages m WHERE m.campaign_id = c.id AND m.clicked_at IS NOT NULL) AS n_click
              FROM campaigns c WHERE $where ORDER BY FIELD(c.status, 'sending', 'paused', 'scheduled', 'draft') DESC, COALESCE(c.finished_at, c.scheduled_at, c.updated_at) DESC", $params, 30);
-        $counts = array_column(DB::all('SELECT status, COUNT(*) AS n FROM campaigns WHERE project_id = ? GROUP BY status', [$pid]), 'n', 'status');
+        $counts = array_column(DB::all("SELECT status, COUNT(*) AS n FROM campaigns WHERE project_id = ? AND status <> 'auto' GROUP BY status", [$pid]), 'n', 'status');
         $this->view('campaigns/index', ['title' => 'Campanyes', 'page' => $page, 'status' => $status, 'q' => $q, 'counts' => $counts]);
     }
 
@@ -70,6 +70,9 @@ final class CampaignController extends Controller
     {
         $project = $this->project();
         $c = $this->own('campaigns', (int) $id);
+        if ($c['status'] === 'auto') {
+            redirect('/automatitzacions/' . (int) $c['automation_id']);
+        }
         $doc = Document::decode($c['doc']);
         $pid = (int) $project['id'];
         $this->view('campaigns/show', [

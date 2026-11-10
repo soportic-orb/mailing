@@ -25,6 +25,7 @@ $r->get('/api/v1/ping', [C\ApiController::class, 'ping'], $pub);
 $r->post('/api/v1/contacts', [C\ApiController::class, 'contacts'], $pub);
 $r->post('/api/v1/contacts/unsubscribe', [C\ApiController::class, 'unsubscribe'], $pub);
 $r->post('/api/v1/contacts/remove', [C\ApiController::class, 'remove'], $pub);
+$r->post('/api/v1/events', [C\ApiController::class, 'event'], $pub);
 $r->get('/f/{slug:[a-z0-9-]+}', [C\PublicFormController::class, 'show'], $pub);
 $r->post('/f/{slug:[a-z0-9-]+}', [C\PublicFormController::class, 'submit'], $pub);
 $r->get('/f/{slug:[a-z0-9-]+}/confirma/{token:[A-Za-z0-9]+}', [C\PublicFormController::class, 'confirm'], $pub);
@@ -72,6 +73,19 @@ $r->post('/editor/imatges', [C\EditorController::class, 'upload'], $pe);
 $r->post('/editor/ia/text', [C\EditorController::class, 'aiText'], $pe);
 $r->post('/editor/ia/imatge', [C\EditorController::class, 'aiImage'], $pe);
 $r->post('/editor/tradueix', [C\EditorController::class, 'translate'], $pe);
+
+// Automations
+$r->get('/automatitzacions', [C\AutomationController::class, 'index'], $p);
+$r->post('/automatitzacions', [C\AutomationController::class, 'store'], $pe);
+$r->get('/automatitzacions/{id:\d+}', [C\AutomationController::class, 'show'], $p);
+$r->post('/automatitzacions/{id:\d+}', [C\AutomationController::class, 'update'], $pe);
+$r->post('/automatitzacions/{id:\d+}/flux', [C\AutomationController::class, 'saveFlow'], $pe);
+$r->post('/automatitzacions/{id:\d+}/activa', [C\AutomationController::class, 'activate'], $pe);
+$r->post('/automatitzacions/{id:\d+}/pausa', [C\AutomationController::class, 'pause'], $pe);
+$r->post('/automatitzacions/{id:\d+}/elimina', [C\AutomationController::class, 'destroy'], $pe);
+$r->post('/automatitzacions/{id:\d+}/inscriu', [C\AutomationController::class, 'enroll'], $pe);
+$r->post('/automatitzacions/{id:\d+}/prova', [C\AutomationController::class, 'simulate'], $p);
+$r->post('/automatitzacions/{id:\d+}/inscripcions/{run:\d+}/treu', [C\AutomationController::class, 'removeRun'], $pe);
 
 // Templates
 $r->get('/plantilles', [C\TemplateController::class, 'index'], $p);

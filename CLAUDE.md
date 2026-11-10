@@ -10,8 +10,10 @@ OTA copies files only). UI in Catalan; code and commits in English.
   `version.txt` is offered as an OTA update to production.
 - Bump `version.txt` (semver) in every change meant for production.
 - Migrations in `database/migrations/*.sql` are additive and idempotent
-  (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`). Never edit an
-  applied migration: add a new file. A failed migration rolls the OTA back.
+  (`CREATE TABLE IF NOT EXISTS`). MySQL 8 has no `ADD COLUMN IF NOT EXISTS`:
+  check `information_schema` and `PREPARE` the `ALTER` as in
+  `2026_11_11_000001_automations.sql`. Never edit an applied migration: add a
+  new file. A failed migration rolls the OTA back.
 - Everything is scoped by `project_id`. Use `Controller::own()` to load a row
   of the current project; never trust ids from the request.
 - The editor is a port of the Tauler's Mailing editor (iSEM,
@@ -19,6 +21,10 @@ OTA copies files only). UI in Catalan; code and commits in English.
   `RichText.php`, `public/assets/editor.js`. Keep them close to the original so
   fixes can be shared. Documents are multi-language envelopes
   (`src/Editor/Document.php`); the HTML is always rendered on the server.
+- Automations (`src/Services/Automations.php`, `public/assets/flow.js`, a
+  dependency-free port of the Torns panel's FlowBuilder; see
+  `docs/automatitzacions.md`): their emails are `campaigns` rows with
+  `status = 'auto'` and `automation_id`; keep them out of campaign listings.
 - Secrets (API keys, remote DB passwords) are stored with `Crypto` (APP_KEY).
 - External base URLs (`MAILJET_BASE`, `AI_ANTHROPIC_URL`, `AI_OPENAI_URL`,
   `UPDATE_RAW_BASE`, `UPDATE_API_BASE`) are only for tests; never set them in

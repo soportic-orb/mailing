@@ -6,6 +6,7 @@ namespace Mailing\Controllers;
 
 use Mailing\Core\DB;
 use Mailing\Core\Settings;
+use Mailing\Services\Automations;
 use Mailing\Services\Contacts;
 use Mailing\Services\Cron;
 use Mailing\Services\Sync;
@@ -85,6 +86,30 @@ final class ApiController
         }
         DB::update('connectors', ['last_run_at' => now_utc(), 'last_status' => 'ok', 'last_message' => 'API: ' . count($items) . ' contactes (' . $counts['created'] . ' nous, ' . $counts['updated'] . ' actualitzats)'], 'id = ?', [$c['id']]);
         json_response(['ok' => true] + $counts + ['results' => $out]);
+    }
+
+    /**
+     * An event of another platform ("registre", "pagament"…): creates or
+     * updates the contact and enrols it in the automations waiting for it.
+     */
+    public function event(): never
+    {
+        $c = $this->connector();
+        $body = $this->body();
+        $event = strtolower(trim((string) ($body['event'] ?? '')));
+        if (!preg_match('/^[a-z0-9_.:-]{1,60}$/', $event)) {
+            json_response(['ok' => false, 'message' => 'Indica «event»: el nom de l\'esdeveniment (lletres, números, _ . : -).'], 422);
+        }
+        $item = isset($body['contact']) && is_array($body['contact']) ? $body['contact'] : $body;
+        unset($item['event']);
+        $pid = (int) $c['project_id'];
+        $r = Contacts::upsert($pid, Sync::mapItem($pid, $item), $c['list_id'] ? (int) $c['list_id'] : null, 'sync:' . $c['id']);
+        if (!$r['id']) {
+            json_response(['ok' => false, 'message' => 'Falta un «email» vàlid.'], 422);
+        }
+        $n = Automations::fireEvent($pid, $event, (int) $r['id']);
+        DB::update('connectors', ['last_run_at' => now_utc(), 'last_status' => 'ok', 'last_message' => 'API: esdeveniment «' . $event . '» · ' . $n . ' automatitzacions'], 'id = ?', [$c['id']]);
+        json_response(['ok' => true, 'event' => $event, 'contact' => $r['result'], 'enrolled' => $n]);
     }
 
     private function find(array $c): ?array
