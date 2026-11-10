@@ -329,6 +329,59 @@ expect "pausada" "$(sql "SELECT status FROM automations WHERE id=$AE")" "paused"
 post /automatitzacions/$AE/elimina >/dev/null
 expect "eliminada amb els seus correus" "$(sql "SELECT COUNT(*) FROM automations WHERE id=$AE")/$(sql "SELECT COUNT(*) FROM campaigns WHERE automation_id=$AE")" "0/0"
 
+echo "== App instal·lable (PWA), menús i avisos push"
+expect "manifest" "$(curl -s $B/manifest.json | php -r 'echo json_decode(stream_get_contents(STDIN), true)["short_name"] ?? "";')" "Mailing"
+expect "service worker" "$(curl -s -o /dev/null -w '%{http_code}' $B/sw.js)" "200"
+expect "pàgina sense connexió" "$(curl -s -o /dev/null -w '%{http_code}' $B/offline.html)" "200"
+expect "icona adaptable" "$(curl -s -o /dev/null -w '%{http_code}' $B/icons/maskable-512.png)" "200"
+P=$(curl -s -c $J -b $J $B/)
+echo "$P" | grep -q 'rel="manifest"' && ok "l'aplicació enllaça el manifest" || bad "manifest a l'app"
+echo "$P" | grep -q 'class="tabbar"' && echo "$P" | grep -q 'class="rail"' && echo "$P" | grep -q 'id="nav-sheet"' && ok "barra inferior, barra lateral i full «Més»" || bad "menús adaptats"
+curl -s "$B/f/$FS" | grep -q 'rel="manifest"' && bad "la pàgina pública és instal·lable" || ok "les pàgines públiques no són instal·lables"
+echo "$P" | grep -q 'name="push-key"' && bad "clau push amb els avisos desactivats" || ok "sense avisos push fins que s'activen"
+post /configuracio -d section=push -d push_enabled=1 >/dev/null
+expect "avisos push activats" "$(sql "SELECT v FROM settings WHERE k='push_enabled'")" "1"
+expect "clau privada VAPID xifrada" "$(sql "SELECT secret FROM settings WHERE k='vapid_private'")" "1"
+curl -s -c $J -b $J $B/ | grep -q 'name="push-key"' && ok "clau pública per subscriure's" || bad "push-key"
+PD=$(mktemp -d)
+KEYS=$(php tests/push_device.php new $PD)
+r=$(ajax /push/subscripcio -H "Content-Type: application/json" -d "{\"endpoint\":\"http://127.0.0.1:8099/push/dev1\",\"keys\":$KEYS,\"device\":\"iPhone · instal·lada\"}"); echo "$r" | grep -q '"ok":true' && ok "subscripció del dispositiu" || bad "subscripció: $r"
+r=$(ajax /push/subscripcio -H "Content-Type: application/json" -d "{\"endpoint\":\"https://127.0.0.1/push/x\",\"keys\":$KEYS}"); echo "$r" | grep -q '"ok":false' && ok "rebutja adreces que no són d'un servei push" || bad "endpoint IP: $r"
+ajax /push/subscripcio -H "Content-Type: application/json" -d "{\"endpoint\":\"http://127.0.0.1:8099/push/gone1\",\"keys\":$KEYS}" >/dev/null
+post /push/prova >/dev/null
+R=$(php tests/push_device.php read $PD storage/logs/push-dev1.json)
+echo "$R" | grep -q '"title":"Avís de prova"' && ok "avís de prova xifrat i desxifrat pel dispositiu" || bad "desxifrat: $R"
+echo "$R" | grep -q '"vapid":true' && ok "signatura VAPID vàlida" || bad "VAPID: $R"
+expect "subscripció caducada (410) esborrada" "$(sql "SELECT COUNT(*) FROM push_subscriptions WHERE endpoint LIKE '%gone1'")" "0"
+rm -f storage/logs/push-dev1.json
+post /campanyes/$CID/duplica >/dev/null
+CP=$(sql "SELECT MAX(id) FROM campaigns WHERE status <> 'auto'")
+post /campanyes/$CP -d name="Butlletí amb avís" -d sender_id=1 -d "lists[]=$NL" >/dev/null
+post /campanyes/$CP/programa -d when=now >/dev/null
+php bin/worker.php >/dev/null
+AN=$(sql "SELECT id FROM notifications WHERE kind='campaign_sent' AND url='/campanyes/$CP/informe' ORDER BY id DESC LIMIT 1")
+[ -n "$AN" ] && ok "avís de campanya enviada" || bad "sense avís de campanya enviada"
+R=$(php tests/push_device.php read $PD storage/logs/push-dev1.json)
+echo "$R" | grep -q 'Campanya enviada' && echo "$R" | grep -q "\"url\":\"/avisos/$AN\"" && ok "push de la campanya enviada" || bad "push campanya: $R"
+expect "obre l'informe i el marca com a llegit" "$(curl -s -c $J -b $J -o /dev/null -w '%{redirect_url}' $B/avisos/$AN | sed 's#.*8080##')/$(sql "SELECT read_at IS NOT NULL FROM notifications WHERE id=$AN")" "/campanyes/$CP/informe/1"
+curl -s -c $J -b $J $B/avisos | grep -q 'Campanya enviada' && ok "campaneta d'avisos" || bad "llista d'avisos"
+post /perfil/avisos -d "kinds[]=campaign_failed" >/dev/null
+post /campanyes/$CP/duplica >/dev/null
+CP2=$(sql "SELECT MAX(id) FROM campaigns WHERE status <> 'auto'")
+post /campanyes/$CP2/programa -d when=now >/dev/null
+php bin/worker.php >/dev/null
+expect "preferències: sense avisos de campanya enviada" "$(sql "SELECT COUNT(*) FROM notifications WHERE url='/campanyes/$CP2/informe'")" "0"
+post /perfil/avisos -d "kinds[]=campaign_sent" -d "kinds[]=campaign_failed" -d "kinds[]=automation" -d "kinds[]=system" >/dev/null
+post /campanyes/$CP2/duplica >/dev/null
+CP3=$(sql "SELECT MAX(id) FROM campaigns WHERE status <> 'auto'")
+post /campanyes/$CP3 -d name="Sense remitent" -d sender_id=1 -d "lists[]=$NL" >/dev/null
+post /campanyes/$CP3/programa -d when=now >/dev/null
+sql "UPDATE campaigns SET sender_id=NULL WHERE id=$CP3"
+php bin/worker.php >/dev/null
+expect "avís de campanya aturada" "$(sql "SELECT COUNT(*) FROM notifications WHERE kind='campaign_failed' AND url='/campanyes/$CP3'")" "1"
+curl -s -c $J -b $J $B/perfil | grep -q 'data-push-toggle' && ok "interruptor d'avisos al perfil" || bad "perfil"
+r=$(ajax /push/baixa -H "Content-Type: application/json" -d '{"endpoint":"http://127.0.0.1:8099/push/dev1"}'); expect "baixa del dispositiu" "$(sql "SELECT COUNT(*) FROM push_subscriptions")" "0"
+
 echo "== Actualització OTA i còpies"
 post /actualitzacio/copia >/dev/null; ls storage/backups/*.sql.gz >/dev/null 2>&1 && ok "còpia de seguretat" || bad "còpia"
 

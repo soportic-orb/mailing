@@ -30,6 +30,8 @@ final class Cron
             $out['sync'] = Sync::runDue();
             self::cleanup();
             Forms::cleanup();
+            Notify::watch($via);
+            $out['push'] = Notify::flush();
         } catch (\Throwable $e) {
             logger('Cron: ' . $e->getMessage(), ['file' => $e->getFile() . ':' . $e->getLine()], 'error');
             $out['error'] = $e->getMessage();

@@ -57,6 +57,15 @@
         </div>
     </form>
     <form method="post" action="/configuracio/prova-ia" class="btns" style="margin:-6px 0 16px"><?= csrf_field() ?><button class="btn secondary" type="submit" data-busy="Provant…">Prova els serveis d'IA</button></form>
+    <form method="post" action="/configuracio" class="card" id="push"><?= csrf_field() ?><input type="hidden" name="section" value="push">
+        <div class="card-head">Avisos push al mòbil <?= \Mailing\Services\Notify::enabled() ? '<span class="pill ok">Activats · ' . fmt_n((int) \Mailing\Core\DB::value('SELECT COUNT(*) FROM push_subscriptions')) . ' dispositius</span>' : '<span class="pill">Desactivats</span>' ?></div>
+        <div class="card-body">
+            <p class="small muted" style="margin-top:0">Amb la plataforma instal·lada al telèfon o a la tauleta (o al navegador de l'ordinador), cada persona pot rebre avisos de les campanyes enviades, fallides, rebots alts… Cadascú tria quins vol al seu perfil. Fa servir Web Push estàndard, sense comptes externs.</p>
+            <label class="check"><input type="checkbox" name="push_enabled" value="1" <?= \Mailing\Services\Notify::enabled() ? 'checked' : '' ?>> Permet activar els avisos push</label>
+            <p class="small muted">Desactivat, no s'envia res als dispositius; els avisos continuen a la campaneta.</p>
+            <button class="btn" type="submit">Desa</button>
+        </div>
+    </form>
     <form method="post" action="/configuracio" class="card" id="update"><?= csrf_field() ?><input type="hidden" name="section" value="update">
         <div class="card-head">Origen de les actualitzacions (OTA)</div>
         <div class="card-body">

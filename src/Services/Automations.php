@@ -688,6 +688,7 @@ final class Automations
                 $set = ['step_id' => $id, 'waiting' => 0, 'next_at' => gmdate('Y-m-d H:i:s', time() + 900)];
                 if (!DB::value("SELECT COUNT(*) FROM automation_log WHERE run_id = ? AND step_id = ? AND type = 'hold'", [$run['id'], $id])) {
                     self::log($a, (int) $run['id'], (int) $contact['id'], $id, 'hold', $problem);
+                    Notify::automationHeld($a, self::describeStep($step, $flow, (int) $a['project_id']), $problem);
                 }
                 break;
             }

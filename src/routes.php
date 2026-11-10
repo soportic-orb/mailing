@@ -38,6 +38,13 @@ $r->post('/logout', [C\AuthController::class, 'logout']);
 $r->get('/perfil', [C\AuthController::class, 'profile'], $a);
 $r->post('/perfil', [C\AuthController::class, 'saveProfile'], $a);
 $r->post('/projecte', [C\DashboardController::class, 'switchProject'], $a);
+$r->get('/avisos', [C\NotificationController::class, 'index'], $a);
+$r->get('/avisos/{id:\d+}', [C\NotificationController::class, 'open'], $a);
+$r->post('/avisos/llegits', [C\NotificationController::class, 'readAll'], $a);
+$r->post('/perfil/avisos', [C\NotificationController::class, 'prefs'], $a);
+$r->post('/push/subscripcio', [C\NotificationController::class, 'subscribe'], $a);
+$r->post('/push/baixa', [C\NotificationController::class, 'unsubscribe'], $a);
+$r->post('/push/prova', [C\NotificationController::class, 'test'], $a);
 
 $r->get('/', [C\DashboardController::class, 'index'], $a);
 

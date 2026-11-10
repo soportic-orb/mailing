@@ -27,8 +27,11 @@ OTA copies files only). UI in Catalan; code and commits in English.
   `status = 'auto'` and `automation_id`; keep them out of campaign listings.
 - Secrets (API keys, remote DB passwords) are stored with `Crypto` (APP_KEY).
 - External base URLs (`MAILJET_BASE`, `AI_ANTHROPIC_URL`, `AI_OPENAI_URL`,
-  `UPDATE_RAW_BASE`, `UPDATE_API_BASE`) are only for tests; never set them in
-  production.
+  `UPDATE_RAW_BASE`, `UPDATE_API_BASE`) and `PUSH_ALLOW_HTTP` are only for
+  tests; never set them in production.
+- PWA, push notices and the adaptive menus: `docs/app-i-avisos.md`. Notices go
+  through `Notify` (never push from a request that sends email); Web Push is
+  done with OpenSSL in `WebPush` (no libraries).
 
 - `docs/format-plantilles.md` is generated: after changing `MailDoc` or
   `TemplateFormat`, run `php bin/console.php template-format > docs/format-plantilles.md`

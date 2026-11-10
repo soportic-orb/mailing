@@ -1,0 +1,22 @@
+{
+    "name": "Mailing Soportic",
+    "short_name": "Mailing",
+    "description": "Campanyes, automatitzacions i contactes dels projectes de Soportic.",
+    "id": "/",
+    "start_url": "/?app=1",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "any",
+    "lang": "ca",
+    "background_color": "#f4f5f7",
+    "theme_color": "#ffffff",
+    "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ],
+    "shortcuts": [
+        { "name": "Campanyes", "url": "/campanyes", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+        { "name": "Avisos", "url": "/avisos", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+    ]
+}

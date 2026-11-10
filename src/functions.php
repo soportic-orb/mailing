@@ -248,7 +248,19 @@ function brand_icon(int $size = 20): string
         . '<path d="M13 19h-8a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v6"/><path d="M3 7l9 6l9 -6"/><path d="M16 22l5 -5"/><path d="M21 21.5v-4.5h-4.5"/></svg>';
 }
 
-function favicon_tag(): string
+/** Favicon; with $pwa, also what makes the platform installable (not on the public pages). */
+function favicon_tag(bool $pwa = false): string
 {
-    return '<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=' . e(app_version()) . '">';
+    $icon = '<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=' . e(app_version()) . '">';
+    if (!$pwa) {
+        return $icon;
+    }
+    return $icon
+        . '<link rel="manifest" href="/manifest.json">'
+        . '<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">'
+        . '<meta name="theme-color" content="#ffffff">'
+        . '<meta name="mobile-web-app-capable" content="yes">'
+        . '<meta name="apple-mobile-web-app-capable" content="yes">'
+        . '<meta name="apple-mobile-web-app-title" content="Mailing">'
+        . '<meta name="apple-mobile-web-app-status-bar-style" content="default">';
 }
