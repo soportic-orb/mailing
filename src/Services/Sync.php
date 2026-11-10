@@ -116,7 +116,8 @@ final class Sync
             }
         }
         foreach (array_keys($c['fields']) as $label) {
-            $key = Contacts::ensureField($projectId, (string) $label);
+            // A new field whose first value is a date (YYYY-MM-DD) is a date field (date triggers of the automations).
+            $key = Contacts::ensureField($projectId, (string) $label, preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $c['fields'][$label]) ? 'date' : 'text');
             if ($key !== $label) {
                 $c['fields'][$key] = $c['fields'][$label];
                 unset($c['fields'][$label]);

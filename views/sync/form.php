@@ -72,6 +72,8 @@ $api = url('api/v1/contacts');
   -d '{"contacts":[{"email":"anna@exemple.cat","first_name":"Anna",
        "last_name":"Puig","language":"ca","external_id":"123",
        "fields":{"empresa":"Hospital X"}}]}'</pre>
+        <p><b>Llistes per contacte</b>: afegeix <code>"lists": ["Compte de prova"]</code> i <code>"remove_lists": ["Compte de pagament"]</code> a cada contacte (noms o ids; les llistes que no existeixen es creen). Qui s'havia donat de baixa d'una llista no s'hi torna a subscriure.</p>
+        <p><b>Esdeveniment</b> (automatitzacions): <code>POST <?= e(url('api/v1/events')) ?></code> amb <code>{"event":"registre","email":"…"}</code>.</p>
         <p><b>Baixa</b> (no rebrà més correus): <code>POST <?= e(url('api/v1/contacts/unsubscribe')) ?></code> amb <code>{"email":"…"}</code></p>
         <p><b>Treure de la llista</b>: <code>POST <?= e(url('api/v1/contacts/remove')) ?></code> amb <code>{"email":"…"}</code></p>
         <p style="margin-bottom:0">Comprovar la clau: <code>GET <?= e(url('api/v1/ping')) ?></code>. Resposta JSON amb el resultat de cada contacte.</p>

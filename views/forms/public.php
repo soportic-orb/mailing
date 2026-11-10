@@ -93,5 +93,16 @@ body.embed .pf-card { box-shadow: none; padding: 4px 2px; width: 100%; }
     <?php endif; ?>
     <?php if (!$embed && $p['website']): ?><p class="pf-foot"><a href="<?= e($p['website']) ?>" style="color:inherit"><?= e(parse_url((string) $p['website'], PHP_URL_HOST) ?: $p['website']) ?></a></p><?php endif; ?>
 </div></div>
+<?php if ($embed): ?><script>
+(function () {
+    // The page that embeds the form can size its iframe: {mailingForm: true, height: …}
+    var last = 0;
+    function send() { var h = document.documentElement.scrollHeight; if (h !== last && window.parent !== window) { last = h; window.parent.postMessage({ mailingForm: true, height: h }, '*'); } }
+    window.addEventListener('load', send);
+    window.addEventListener('resize', send);
+    if (window.ResizeObserver) new ResizeObserver(send).observe(document.body);
+    send();
+})();
+</script><?php endif; ?>
 </body>
 </html>
