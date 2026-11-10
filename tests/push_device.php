@@ -43,7 +43,7 @@ if ($cmd === 'read') {
     $asPublic = substr($body, 21, $idlen);
     $cipher = substr($body, 21 + $idlen);
     $uaPublic = $unb64($dev['p256dh']);
-    $shared = openssl_pkey_derive(openssl_pkey_get_public($pem($asPublic)), openssl_pkey_get_private($dev['priv']), 32);
+    $shared = openssl_pkey_derive(openssl_pkey_get_public($pem($asPublic)), openssl_pkey_get_private($dev['priv']));
     $ikm = hash_hkdf('sha256', $shared, 32, "WebPush: info\0" . $uaPublic . $asPublic, $unb64($dev['auth']));
     $cek = hash_hkdf('sha256', $ikm, 16, "Content-Encoding: aes128gcm\0", $salt);
     $nonce = hash_hkdf('sha256', $ikm, 12, "Content-Encoding: nonce\0", $salt);

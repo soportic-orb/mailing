@@ -119,7 +119,7 @@ final class WebPush
     {
         $local = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
         $asPublic = self::rawPublic($local);
-        $shared = openssl_pkey_derive(openssl_pkey_get_public(self::pemFromRaw($uaPublic)), $local, 32);
+        $shared = openssl_pkey_derive(openssl_pkey_get_public(self::pemFromRaw($uaPublic)), $local);
         if ($shared === false) {
             throw new \RuntimeException('La clau del dispositiu no és vàlida.');
         }
