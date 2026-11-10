@@ -8,7 +8,7 @@ $accent = $accent ?? '#ac1966';
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title><?= e($title ?? 'Mailing') ?></title>
-<?= favicon_tag() ?>
+<?= favicon_tag(!empty($pwa)) ?>
 <link rel="stylesheet" href="/assets/app.css?v=<?= e(app_version()) ?>">
 <style>:root { --accent: <?= e($accent) ?>; --accent-dark: color-mix(in srgb, <?= e($accent) ?> 82%, #000); --accent-soft: color-mix(in srgb, <?= e($accent) ?> 12%, #fff); }</style>
 </head>

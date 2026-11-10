@@ -15,7 +15,7 @@ final class AuthController extends Controller
         if (Auth::check()) {
             redirect('/');
         }
-        $this->view('auth/login', ['title' => 'Inicia la sessió'], 'layouts/bare');
+        $this->view('auth/login', ['title' => 'Inicia la sessió', 'pwa' => true], 'layouts/bare');
     }
 
     public function login(): never

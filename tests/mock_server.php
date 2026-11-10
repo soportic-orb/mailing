@@ -8,6 +8,18 @@ $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
 file_put_contents(__DIR__ . '/../storage/logs/mock.log', $_SERVER['REQUEST_METHOD'] . ' ' . $path . ' ' . json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND);
 header('Content-Type: application/json');
 switch (true) {
+    case str_starts_with($path, '/push/'):
+        // A browser push service: keeps what it got, "gone" subscriptions answer 410.
+        file_put_contents(__DIR__ . '/../storage/logs/push-' . basename($path) . '.json', json_encode([
+            'body' => base64_encode((string) file_get_contents('php://input')), 'auth' => $_SERVER['HTTP_AUTHORIZATION'] ?? '',
+            'encoding' => $_SERVER['HTTP_CONTENT_ENCODING'] ?? '', 'ttl' => $_SERVER['HTTP_TTL'] ?? '', 'topic' => $_SERVER['HTTP_TOPIC'] ?? '']));
+        http_response_code(str_contains($path, 'gone') ? 410 : 201);
+        echo '{}';
+        break;
+    case str_starts_with($path, '/github/'):
+        header('Content-Type: text/plain');
+        echo "0.0.1\n";
+        break;
     case $path === '/v3.1/send':
         $out = [];
         foreach ($body['Messages'] ?? [] as $i => $m) {

@@ -63,6 +63,16 @@ final class SettingsController extends Controller
             Settings::set('claude_model', str_input('claude_model', 80));
             Settings::set('openai_text_model', str_input('openai_text_model', 80));
             Settings::set('openai_image_model', str_input('openai_image_model', 80));
+        } elseif ($section === 'push') {
+            $on = input('push_enabled') === '1';
+            if ($on) {
+                try {
+                    \Mailing\Services\WebPush::ensureKeys();
+                } catch (\RuntimeException $e) {
+                    $this->fail($e->getMessage());
+                }
+            }
+            Settings::set('push_enabled', $on ? '1' : '0');
         } elseif ($section === 'update') {
             Settings::set('update_repo', preg_match('#^[\w.-]+/[\w.-]+$#', str_input('update_repo', 120)) ? str_input('update_repo', 120) : 'soportic-orb/mailing');
             Settings::set('update_branch', str_input('update_branch', 60) ?: 'main');

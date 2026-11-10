@@ -75,6 +75,7 @@ final class Sync
             $msg = mb_substr($e->getMessage(), 0, 1000);
             DB::update('connectors', ['last_run_at' => now_utc(), 'last_status' => 'error', 'last_message' => $msg], 'id = ?', [$connector['id']]);
             logger('Sync ' . $connector['id'] . ': ' . $msg, [], 'sync');
+            Notify::syncFailed($connector, $msg);
             return ['ok' => false, 'message' => $msg];
         }
     }

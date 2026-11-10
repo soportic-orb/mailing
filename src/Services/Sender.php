@@ -76,12 +76,16 @@ final class Sender
             DB::update('campaigns', ['recipients' => $n], 'id = ?', [$c['id']]);
             if ($n === 0) {
                 DB::update('campaigns', ['status' => 'failed', 'error' => 'No hi havia cap destinatari en el moment de l\'enviament.', 'finished_at' => now_utc()], 'id = ?', [$c['id']]);
+                Notify::campaignFailed($c, 'no hi havia cap destinatari en el moment de l\'enviament.');
+            } else {
+                Notify::campaignStarted($c, $n);
             }
             Activity::log('campaign.started', $c['name'] . ' · ' . $n . ' destinataris', (int) $c['project_id']);
             return true;
         } catch (\Throwable $e) {
             DB::update('campaigns', ['status' => 'failed', 'error' => mb_substr($e->getMessage(), 0, 1000)], 'id = ?', [$c['id']]);
             logger('Campaign ' . $c['id'] . ' start: ' . $e->getMessage(), [], 'send');
+            Notify::campaignFailed($c, 'no s\'ha pogut començar l\'enviament (' . mb_substr($e->getMessage(), 0, 150) . ').');
             return false;
         }
     }
@@ -98,6 +102,7 @@ final class Sender
         if (!$project || !$sender || !$client->configured()) {
             $error = !$sender ? 'La campanya no té remitent.' : 'Mailjet no està configurat.';
             DB::update('campaigns', $auto ? ['error' => $error] : ['status' => 'paused', 'error' => $error], 'id = ?', [$c['id']]);
+            $auto ? Notify::automationEmailFailed($c, $error) : Notify::campaignFailed($c, 's\'ha pausat: ' . lcfirst($error));
             return ['sent' => 0, 'failed' => 0, 'finished' => false];
         }
         $doc = Document::decode($c['doc']);
@@ -149,8 +154,10 @@ final class Sender
                 if ($max >= 3 && $auto) {
                     DB::exec("UPDATE messages SET status = 'failed' WHERE attempts >= 3 AND status = 'queued' AND id IN (" . DB::in($ids) . ')', $ids);
                     DB::update('campaigns', ['error' => 'Enviament fallit: ' . mb_substr($e->getMessage(), 0, 900)], 'id = ?', [$c['id']]);
+                    Notify::automationEmailFailed($c, 'Mailjet no l\'accepta (' . mb_substr($e->getMessage(), 0, 150) . ').');
                 } elseif ($max >= 3) {
                     DB::update('campaigns', ['status' => 'paused', 'error' => 'Enviament aturat: ' . mb_substr($e->getMessage(), 0, 900)], 'id = ?', [$c['id']]);
+                    Notify::campaignFailed($c, 's\'ha pausat després de 3 intents: ' . mb_substr($e->getMessage(), 0, 150));
                 }
                 logger('Campaign ' . $c['id'] . ' batch: ' . $e->getMessage(), [], 'send');
                 return ['sent' => $sent, 'failed' => $failed, 'finished' => false];
@@ -176,6 +183,7 @@ final class Sender
             DB::exec("UPDATE campaigns SET status = ?, finished_at = UTC_TIMESTAMP(), error = ? WHERE id = ? AND status = 'sending'",
                 [$ok > 0 ? 'sent' : 'failed', $ok > 0 ? null : 'Mailjet no ha acceptat cap missatge.', $c['id']]);
             Activity::log('campaign.finished', $c['name'] . ' · ' . $ok . ' enviats', (int) $c['project_id']);
+            $ok > 0 ? Notify::campaignSent($c) : Notify::campaignFailed($c, 'Mailjet no ha acceptat cap missatge.');
             return ['sent' => $sent, 'failed' => $failed, 'finished' => true];
         }
         return ['sent' => $sent, 'failed' => $failed, 'finished' => false];

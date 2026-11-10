@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 DB=${DB_NAME:-mailing_test}
 MYSQL="mysql --default-character-set=utf8mb4 -uroot ${MYSQL_ARGS:-}"
 $MYSQL -e "DROP DATABASE IF EXISTS $DB; CREATE DATABASE $DB CHARACTER SET utf8mb4; CREATE USER IF NOT EXISTS 'mailing'@'%' IDENTIFIED BY 'secret123'; CREATE USER IF NOT EXISTS 'mailing'@'localhost' IDENTIFIED BY 'secret123'; GRANT ALL ON $DB.* TO 'mailing'@'%'; GRANT ALL ON $DB.* TO 'mailing'@'localhost'; CREATE DATABASE IF NOT EXISTS sourceapp; GRANT SELECT ON sourceapp.* TO 'mailing'@'%'; GRANT SELECT ON sourceapp.* TO 'mailing'@'localhost'; FLUSH PRIVILEGES;"
-rm -f .env config/installed.lock storage/logs/mock.log
+rm -f .env config/installed.lock storage/logs/mock.log storage/logs/push-*.json
 php -S 127.0.0.1:8080 -t public public/index.php > /tmp/mailing-app.log 2>&1 & APP=$!
 php -S 127.0.0.1:8099 tests/mock_server.php > /tmp/mailing-mock.log 2>&1 & MOCK=$!
 trap 'kill $APP $MOCK 2>/dev/null || true' EXIT
@@ -23,6 +23,8 @@ MAILJET_BASE=http://127.0.0.1:8099
 AI_ANTHROPIC_URL=http://127.0.0.1:8099/anthropic
 AI_OPENAI_URL=http://127.0.0.1:8099/openai
 APP_DEBUG=true
+PUSH_ALLOW_HTTP=true
+UPDATE_RAW_BASE=http://127.0.0.1:8099/github
 ENV
 # Two projects, as an administrator would create them.
 T=$(curl -s -c $J -b $J http://127.0.0.1:8080/login | grep -o 'name="_csrf" value="[^"]*"' | cut -d'"' -f4)
