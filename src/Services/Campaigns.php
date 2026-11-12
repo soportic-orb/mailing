@@ -137,7 +137,7 @@ final class Campaigns
             $active = strtolower((string) $sender['mailjet_status']) === 'active';
             $out[] = ['ok' => $active, 'label' => $active ? 'El remitent està validat a Mailjet.' : 'El remitent no consta com a validat a Mailjet (estat: ' . ($sender['mailjet_status'] ?: 'desconegut') . '). Sincronitza els remitents.', 'block' => false];
         }
-        $out[] = ['ok' => $recipients > 0, 'label' => $recipients > 0 ? fmt_n($recipients) . ' destinataris: ' . Audience::describe(Audience::clean($c['audience']), (int) $project['id']) : 'No hi ha cap destinatari (tria llistes o segments).', 'block' => true];
+        $out[] = ['ok' => $recipients > 0, 'label' => $recipients > 0 ? fmt_n($recipients) . ' destinataris: ' . Audience::describe(Audience::clean($c['audience']), (int) $project['id']) : 'No hi ha cap destinatari (tria llistes o segments, o escriu adreces).', 'block' => true];
         if ($forced) {
             $out[] = ['ok' => true, 'label' => 'Tothom rebrà la versió en ' . Document::LANGS[$forced] . ' (idioma forçat).', 'block' => false];
         } elseif ($audience['lang'] !== '') {

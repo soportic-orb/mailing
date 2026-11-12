@@ -134,6 +134,21 @@ expect "idioma forçat: hi ha destinataris" "$(sql "SELECT COUNT(*) FROM message
 grep 'POST /v3.1/send' storage/logs/mock.log | tail -1 | grep -q '\[ES\] Hola Anna' && ok "Anna (català) rep el castellà" || bad "forçat castellà"
 post /campanyes/$CFL/elimina >/dev/null
 
+echo "== Adreces escrites a mà"
+post /campanyes/$CID/duplica >/dev/null
+CM=$(sql "SELECT MAX(id) FROM campaigns WHERE status <> 'auto'")
+sql "INSERT INTO contacts (project_id, email, status, created_at, updated_at) VALUES (1, 'baixa.manual@exemple.cat', 'unsubscribed', UTC_TIMESTAMP(), UTC_TIMESTAMP())"
+expect "recompte en directe: llista + adreces (una ja hi és)" "$(curl -s -c $J -b $J "$B/campanyes/$CM/destinataris?lists[]=$LIST" --get --data-urlencode "emails=joan@exemple.cat, manual.nou@exemple.cat" | grep -o '"count":[0-9]*')" '"count":6'
+post /campanyes/$CM -d name="Adreces a mà" -d sender_id=1 --data-urlencode $'emails=manual1@exemple.cat\nManual2@Exemple.cat, no-valida; joan@exemple.cat baixa.manual@exemple.cat' >/dev/null
+expect "adreces desades (la no vàlida es descarta)" "$(sql "SELECT JSON_LENGTH(audience, '\$.emails') FROM campaigns WHERE id=$CM")" "4"
+expect "sense llistes: només les adreces (sense la de baixa)" "$(curl -s -c $J -b $J "$B/campanyes/$CM/destinataris" --get --data-urlencode $'emails=manual1@exemple.cat\nManual2@Exemple.cat joan@exemple.cat baixa.manual@exemple.cat' | grep -o '"count":[0-9]*')" '"count":3'
+curl -s -c $J -b $J $B/campanyes/$CM | grep -q 'manual2@exemple.cat' && ok "camp «Adreces addicionals» amb les adreces desades" || bad "camp d'adreces"
+post /campanyes/$CM/programa -d when=now >/dev/null
+php bin/worker.php >/dev/null
+expect "enviada a les adreces escrites" "$(sql "SELECT GROUP_CONCAT(email ORDER BY email) FROM messages WHERE campaign_id=$CM")" "joan@exemple.cat,manual1@exemple.cat,manual2@exemple.cat"
+expect "l'adreça nova es crea com a contacte" "$(sql "SELECT CONCAT(status, ' ', source) FROM contacts WHERE email='manual1@exemple.cat'")" "subscribed campanya:$CM"
+curl -s -c $J -b $J $B/campanyes/$CM/informe | grep -q '4 adreces escrites a mà' && ok "l'informe descriu els destinataris" || bad "descripció"
+
 echo "== Seguiment (webhooks)"
 WK=$(sql "SELECT v FROM settings WHERE k='webhook_key'")
 M1=$(sql "SELECT id FROM messages WHERE campaign_id=$CID AND email='anna@exemple.cat'")

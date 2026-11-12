@@ -101,6 +101,9 @@ $tomorrow = (new DateTimeImmutable('tomorrow', app_tz()))->format('Y-m-d');
                     <div class="chips" style="margin-top:8px"><?php foreach ($lists as $l): ?><label class="chip"><input type="checkbox" name="exclude_lists[]" value="<?= (int) $l['id'] ?>" <?= in_array((int) $l['id'], $audience['exclude_lists'], true) ? 'checked' : '' ?> data-aud> <?= e($l['name']) ?></label><?php endforeach; ?></div>
                 </details>
             <?php endif; ?>
+            <label class="field"><span>Adreces addicionals <span class="muted" style="font-weight:400">(opcional)</span></span>
+                <textarea class="input" name="emails" rows="3" data-aud placeholder="una@exemple.cat&#10;altra@exemple.cat"><?= e(implode("\n", $audience['emails'])) ?></textarea>
+                <small>Una per línia o separades per comes, a més de les llistes i segments (o sense). Les que encara no són contactes del projecte es creen en enviar. No s'envia a qui s'ha donat de baixa o té rebots.</small></label>
             <p class="alert info" style="margin:6px 0 14px"><b id="aud-count"><?= fmt_n($count) ?></b> destinataris. Només els contactes subscrits; cadascú rep un sol correu encara que sigui a diverses llistes.</p>
             <?php if ($editable): ?><button class="btn" type="submit">Desa la configuració</button><?php endif; ?>
             </fieldset>
@@ -196,7 +199,7 @@ $tomorrow = (new DateTimeImmutable('tomorrow', app_tz()))->format('Y-m-d');
             });
         }, 250);
     }
-    form.querySelectorAll('[data-aud]').forEach(function (i) { i.addEventListener('change', recount); });
+    form.querySelectorAll('[data-aud]').forEach(function (i) { i.addEventListener('change', recount); if (i.tagName === 'TEXTAREA') i.addEventListener('input', recount); });
     <?php if ($c['status'] === 'sending'): ?>setTimeout(function () { location.reload(); }, 20000);<?php endif; ?>
 })();
 </script>
