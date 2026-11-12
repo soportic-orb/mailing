@@ -30,6 +30,10 @@ final class PublicFormController
     {
         header('Content-Type: text/html; charset=utf-8');
         header('Cache-Control: no-store');
+        // Signup forms are meant to be embedded in other sites (?embed=1). The web server may add
+        // "X-Frame-Options: SAMEORIGIN" to every response (CloudPanel does); browsers ignore it when
+        // the page sends a CSP frame-ancestors, so this lets any site show the form in an iframe.
+        header('Content-Security-Policy: frame-ancestors *');
         $embed = isset($_GET['embed']);
         echo View::render('forms/public', [
             'f' => $f, 'p' => $p, 'state' => $state, 'embed' => $embed,
