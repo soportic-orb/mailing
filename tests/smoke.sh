@@ -222,6 +222,7 @@ post /formularis -d title="Butlletí Emergencing" -d "lists[]=$LIST" -d "fields[
 FS=$(sql "SELECT slug FROM forms WHERE title='Butlletí Emergencing'"); expect "adreça del formulari" "$FS" "butlleti-emergencing"
 PAGE=$(curl -s "$B/f/$FS"); echo "$PAGE" | grep -q 'name="website"' && ok "pàgina pública amb camp parany" || bad "pàgina pública"
 curl -s "$B/f/$FS?embed=1" | grep -q 'mailingForm' && ok "el formulari incrustat comunica la seva alçada" || bad "alçada incrustat"
+curl -s -D - -o /dev/null "$B/f/$FS?embed=1" | grep -qi '^content-security-policy: frame-ancestors \*' && ok "el formulari es pot incrustar en altres webs (frame-ancestors)" || bad "frame-ancestors"
 STAMP=$(echo "$PAGE" | grep -o 'name="_t" value="[^"]*"' | cut -d'"' -f4)
 curl -s -X POST "$B/f/$FS" --data-urlencode "_t=$STAMP" -d "email=rapid@bot.cat&first_name=Bot&consent=1" | grep -q 'No s&#039;ha pogut enviar' && ok "rebutja enviaments massa ràpids" || bad "temps mínim"
 sleep 2
