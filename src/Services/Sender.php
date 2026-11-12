@@ -69,7 +69,8 @@ final class Sender
             $forced = Document::forcedLang($doc, $audience);
             $contacts = Audience::contacts($audience, (int) $c['project_id']);
             $ins = DB::pdo()->prepare('INSERT IGNORE INTO messages (campaign_id, contact_id, email, language, status) VALUES (?, ?, ?, ?, ?)');
-            foreach ($contacts as $ct) {
+            // Plus the addresses typed by hand (each once: the unique key skips the ones already chosen).
+            foreach (array_merge($contacts, Audience::typedContacts($audience, (int) $c['project_id'], 'campanya:' . $c['id'])) as $ct) {
                 $ins->execute([$c['id'], $ct['id'], $ct['email'], Document::langFor($doc, $ct['language'] ?: null, $forced), 'queued']);
             }
             $n = (int) DB::value('SELECT COUNT(*) FROM messages WHERE campaign_id = ?', [$c['id']]);

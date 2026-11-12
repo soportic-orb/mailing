@@ -107,19 +107,29 @@ final class CampaignController extends Controller
         if ($reply !== '' && !valid_email($reply)) {
             $this->fail('L\'adreça de resposta no és vàlida.');
         }
-        $audience = Audience::clean(['all' => input('all') === '1', 'lists' => input('lists', []), 'segments' => input('segments', []), 'exclude_lists' => input('exclude_lists', []), 'lang' => str_input('lang', 5)]);
+        $typed = Audience::emails((string) input('emails', ''));
+        $audience = Audience::clean(['all' => input('all') === '1', 'lists' => input('lists', []), 'segments' => input('segments', []), 'exclude_lists' => input('exclude_lists', []),
+            'lang' => str_input('lang', 5), 'emails' => $typed['valid']]);
         DB::update('campaigns', [
             'name' => $name !== '' ? $name : $c['name'], 'sender_id' => $sender, 'reply_to' => $reply ?: null,
             'audience' => json_encode($audience), 'updated_by' => Auth::id(), 'updated_at' => now_utc(),
         ], 'id = ?', [$c['id']]);
-        $this->done('Configuració desada.', '/campanyes/' . $c['id']);
+        $note = '';
+        if ($typed['invalid']) {
+            $note .= ' S\'han descartat ' . count($typed['invalid']) . ' adreces no vàlides: ' . implode(', ', array_slice($typed['invalid'], 0, 5)) . (count($typed['invalid']) > 5 ? '…' : '') . '.';
+        }
+        if (count($typed['valid']) > Audience::MAX_EMAILS) {
+            $note .= ' Només es desen les primeres ' . fmt_n(Audience::MAX_EMAILS) . ' adreces escrites: per a més, importa-les a una llista.';
+        }
+        $this->done('Configuració desada.' . $note, '/campanyes/' . $c['id']);
     }
 
     /** Live recipient count while choosing lists and segments. */
     public function countAudience(string $id): never
     {
         $this->own('campaigns', (int) $id);
-        $a = Audience::clean(['all' => input('all') === '1', 'lists' => input('lists', []), 'segments' => input('segments', []), 'exclude_lists' => input('exclude_lists', [])]);
+        $a = Audience::clean(['all' => input('all') === '1', 'lists' => input('lists', []), 'segments' => input('segments', []), 'exclude_lists' => input('exclude_lists', []),
+            'emails' => (string) input('emails', '')]);
         json_response(['ok' => true, 'count' => Audience::count($a, $this->pid())]);
     }
 
